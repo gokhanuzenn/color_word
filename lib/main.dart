@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -8,6 +9,8 @@ import 'data/services/audio_service.dart';
 import 'data/services/custom_image_service.dart';
 import 'data/services/ad_service.dart';
 import 'features/home/home_page.dart';
+import 'core/widgets/app_logo.dart';
+import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +44,23 @@ class ColorWordApp extends StatelessWidget {
       title: 'ColorWord',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
+      // Çok dilli destek
+      localizationsDelegates: const [
+        AppLocalizationsDelegate(),
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: supportedLocales,
+      // Otomatik dil algılama - cihazın dilini kullan
+      localeResolutionCallback: (locale, supportedLocales) {
+        for (final supportedLocale in supportedLocales) {
+          if (supportedLocale.languageCode == locale?.languageCode) {
+            return supportedLocale;
+          }
+        }
+        return const Locale('tr', 'TR'); // Varsayılan: Türkçe
+      },
       home: const SplashScreen(),
     );
   }
@@ -101,30 +121,8 @@ class _SplashScreenState extends State<SplashScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFD93D),
-                  border: Border.all(
-                    color: const Color(0xFF1E1E1E),
-                    width: 4,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0xFF1E1E1E),
-                      offset: Offset(8, 8),
-                    ),
-                  ],
-                ),
-                child: const Center(
-                  child: Text(
-                    '🎨',
-                    style: TextStyle(fontSize: 64),
-                  ),
-                ),
-              ),
+              // Logo - Yeni Modern Logo
+              const AppLogoLarge(size: 160),
               const SizedBox(height: 32),
               const Text(
                 'ColorWord',
@@ -135,12 +133,18 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Renklerle kelime öğren!',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Color(0xFF6B6B6B),
-                ),
+              // Çevrilmiş alt başlık
+              Builder(
+                builder: (context) {
+                  final l10n = AppLocalizations.of(context);
+                  return Text(
+                    l10n.translate('appDescription'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Color(0xFF6B6B6B),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 32),
               const CircularProgressIndicator(

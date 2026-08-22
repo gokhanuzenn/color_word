@@ -4,11 +4,13 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/widgets/neubrutal_button.dart';
+import '../../core/widgets/app_logo.dart';
 import '../../core/widgets/neubrutal_card.dart';
 import '../../data/providers/app_provider.dart';
 import '../categories/categories_page.dart';
 import '../settings/settings_page.dart';
 import '../settings/admin_page.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Ana sayfa
 class HomePage extends ConsumerStatefulWidget {
@@ -55,18 +57,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Başlık (gizli tıklama)
+              // Logo (gizli tıklama)
               GestureDetector(
                 onTap: _onLogoTap,
-                child: const Text(
-                  '🎨 ColorWord',
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+                child: const AppLogo(size: 100),
               )
                   .animate()
                   .fadeIn(duration: 600.ms)
@@ -74,13 +68,30 @@ class _HomePageState extends ConsumerState<HomePage> {
 
               const SizedBox(height: 8),
 
-              Text(
-                'Renklerle kelime öğren!',
+              const Text(
+                'ColorWord',
                 style: TextStyle(
-                  fontSize: 18,
-                  color: AppColors.textSecondary,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textPrimary,
                 ),
                 textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 8),
+
+              Builder(
+                builder: (context) {
+                  final l10n = AppLocalizations.of(context);
+                  return Text(
+                    l10n.translate('appDescription'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: AppColors.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  );
+                },
               ).animate().fadeIn(delay: 200.ms, duration: 600.ms),
 
               const SizedBox(height: AppConstants.paddingExtraLarge),
@@ -126,39 +137,48 @@ class _HomePageState extends ConsumerState<HomePage> {
               const Spacer(),
 
               // Ana butonlar
-              NeubrutalButton(
-                label: '🚀 Başla',
-                backgroundColor: AppColors.buttonPrimary,
-                width: double.infinity,
-                height: 60,
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const CategoriesPage(),
-                    ),
+              Builder(
+                builder: (context) {
+                  final l10n = AppLocalizations.of(context);
+                  return Column(
+                    children: [
+                      NeubrutalButton(
+                        label: '🚀 ${l10n.translate("start")}',
+                        backgroundColor: AppColors.buttonPrimary,
+                        width: double.infinity,
+                        height: 60,
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CategoriesPage(),
+                            ),
+                          );
+                        },
+                      ).animate().fadeIn(delay: 600.ms, duration: 600.ms)
+                          .slideY(begin: 0.3),
+
+                      const SizedBox(height: 16),
+
+                      NeubrutalButton(
+                        label: '⚙️ ${l10n.translate("settings")}',
+                        backgroundColor: AppColors.buttonSecondary,
+                        width: double.infinity,
+                        height: 60,
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SettingsPage(),
+                            ),
+                          );
+                        },
+                      ).animate().fadeIn(delay: 800.ms, duration: 600.ms)
+                          .slideY(begin: 0.3),
+                    ],
                   );
                 },
-              ).animate().fadeIn(delay: 600.ms, duration: 600.ms)
-                  .slideY(begin: 0.3),
-
-              const SizedBox(height: 16),
-
-              NeubrutalButton(
-                label: '⚙️ Ayarlar',
-                backgroundColor: AppColors.buttonSecondary,
-                width: double.infinity,
-                height: 60,
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SettingsPage(),
-                    ),
-                  );
-                },
-              ).animate().fadeIn(delay: 800.ms, duration: 600.ms)
-                  .slideY(begin: 0.3),
+              ),
 
               const SizedBox(height: AppConstants.paddingMedium),
             ],

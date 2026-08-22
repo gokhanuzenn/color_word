@@ -31,12 +31,12 @@ const Map<String, String> _categoryFolderMap = {
   'Yiyecekler': 'yiyecekler',
 };
 
-/// Her kategorideki resim sayıları
+/// Her kategorideki resim sayıları (güncel)
 const Map<String, int> _categoryImageCounts = {
   'ciftlik': 11,
   'deniz_alti': 11,
   'dinozor': 22,
-  'doga': 11,
+  'doga': 22,
   'doga_gokyuzu': 11,
   'emoji': 15,
   'erkek_karakter': 31,
@@ -49,7 +49,7 @@ const Map<String, int> _categoryImageCounts = {
   'okyanus': 20,
   'oyuncak': 6,
   'robot': 15,
-  'sayilar': 21,
+  'sayilar': 22,
   'sevimli_dostlar': 22,
   'tamamlayici': 22,
   'tasitlar': 14,

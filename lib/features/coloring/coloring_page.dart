@@ -1,10 +1,14 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
+import '../../data/services/achievement_service.dart';
+import '../../data/services/ad_service.dart';
 
-/// Boyama sayfası - Silgi sadece dokunduğu yeri siler
+/// Boyama sayfası
 class ColoringPage extends StatefulWidget {
   final String categoryName;
   final String categoryIcon;
@@ -29,25 +33,32 @@ class ColoringPage extends StatefulWidget {
   State<ColoringPage> createState() => _ColoringPageState();
 }
 
-class _ColoringPageState extends State<ColoringPage> {
+class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderStateMixin {
   late int _currentPage;
-
-  // Çizim durumları
   List<DrawStroke> _strokes = [];
+  List<DrawStroke> _redoStack = [];
   Color _selectedColor = Colors.black;
   double _brushSize = 6.0;
   bool _isErasing = false;
-
-  // Seçili araç
   String _selectedTool = 'kalem';
   String _selectedSubTool = 'HB';
   bool _showSubTools = false;
-
-  // Çizim yapılıyor mu?
   bool _isDrawing = false;
   DrawStroke? _currentStroke;
 
-  // Kalem varyasyonları
+  // Sticker
+  bool _stickerMode = false;
+  String _selectedSticker = '⭐';
+  final List<StickerItem> _placedStickers = [];
+
+  // Filtre
+  int _selectedFilter = 0;
+  final List<String> _filterNames = ['Orijinal', 'Retro', 'Pastel', 'Neon'];
+
+  bool _hasUnsavedChanges = false;
+  bool _showSparkle = false;
+  late AnimationController _sparkleController;
+
   final List<Map<String, dynamic>> _pencilGrades = [
     {'grade': 'HB', 'desc': 'Standart', 'size': 2.0},
     {'grade': '2B', 'desc': 'Biraz kalın', 'size': 3.0},
@@ -57,7 +68,6 @@ class _ColoringPageState extends State<ColoringPage> {
     {'grade': '8B', 'desc': 'En kalın', 'size': 9.0},
   ];
 
-  // Fırça varyasyonları
   final List<Map<String, dynamic>> _brushStyles = [
     {'style': 'Sulu', 'desc': 'Sulu boya', 'size': 12.0},
     {'style': 'Keçeli', 'desc': 'Keçeli', 'size': 5.0},
@@ -65,20 +75,48 @@ class _ColoringPageState extends State<ColoringPage> {
     {'style': 'Kuru', 'desc': 'Kuru boya', 'size': 7.0},
   ];
 
+  final List<String> _stickers = [
+    '⭐', '🌟', '💫', '✨', '🌈', '🦄', '🐱', '🐶', '🐰', '🐻',
+    '❤️', '💖', '💝', '🎉', '🎈', '🦋', '🌸', '🌺', '🌻', '🍀',
+    '🍎', '🍕', '🍦', '🎂', '🎀', '👑', '💎', '🎵', '🎨', '🦋',
+  ];
+
   @override
   void initState() {
     super.initState();
     _currentPage = widget.initialImageIndex;
+    _sparkleController = AnimationController(duration: const Duration(seconds: 2), vsync: this);
+    _startAutoSave();
   }
 
+  @override
+  void dispose() {
+    _sparkleController.dispose();
+    super.dispose();
+  }
+
+  // === ÇİZİM ===
+
   void _startDrawing(Offset point) {
+    if (_stickerMode) {
+      // Sticker modundaysa sticker koy
+      setState(() {
+        _placedStickers.add(StickerItem(
+          emoji: _selectedSticker,
+          x: point.dx,
+          y: point.dy,
+        ));
+        _hasUnsavedChanges = true;
+      });
+      return;
+    }
     setState(() {
       _isDrawing = true;
+      _redoStack.clear();
       _currentStroke = DrawStroke(
-        color: _isErasing ? Colors.red.withOpacity(0.3) : _selectedColor,
-        size: _isErasing ? _brushSize : _brushSize,
+        color: _isErasing ? Colors.white : _selectedColor,
+        size: _isErasing ? _brushSize * 2 : _brushSize,
         points: [point],
-        isEraser: _isErasing,
       );
     });
   }
@@ -87,21 +125,16 @@ class _ColoringPageState extends State<ColoringPage> {
     if (_isDrawing && _currentStroke != null) {
       setState(() {
         _currentStroke!.points.add(point);
+        _hasUnsavedChanges = true;
       });
-
-      // Silgi modunda - temas ettiği çizimleri böl ve sil
-      if (_isErasing) {
-        _eraseAtPoint(point);
-      }
+      if (_isErasing) _eraseAtPoint(point);
     }
   }
 
   void _endDrawing() {
     if (_isDrawing && _currentStroke != null && !_isErasing) {
       if (_currentStroke!.points.length > 1) {
-        setState(() {
-          _strokes.add(_currentStroke!);
-        });
+        setState(() => _strokes.add(_currentStroke!));
       }
     }
     setState(() {
@@ -110,257 +143,181 @@ class _ColoringPageState extends State<ColoringPage> {
     });
   }
 
-  /// Belirli bir noktadaki çizimleri sil (sadece dokunulan kısım)
   void _eraseAtPoint(Offset eraserCenter) {
     final eraserRadius = _brushSize * 2;
     final newStrokes = <DrawStroke>[];
-
     for (final stroke in _strokes) {
-      // Çizgiyi segmentlere böl
+      if (stroke.isEraser) continue;
       final segments = <DrawStroke>[];
       List<Offset> currentSegment = [];
-
-      for (int i = 0; i < stroke.points.length; i++) {
-        final point = stroke.points[i];
-        final distance = (point - eraserCenter).distance;
-        final isNearEraser = distance <= eraserRadius;
-
-        if (!isNearEraser) {
-          // Nokta silgiden uzak - segmente ekle
+      for (final point in stroke.points) {
+        if ((point - eraserCenter).distance > eraserRadius) {
           currentSegment.add(point);
         } else {
-          // Nokta silgiye yakın - mevcut segmenti kaydet
           if (currentSegment.length >= 2) {
-            segments.add(DrawStroke(
-              color: stroke.color,
-              size: stroke.size,
-              points: List.from(currentSegment),
-            ));
+            segments.add(DrawStroke(color: stroke.color, size: stroke.size, points: List.from(currentSegment)));
           }
           currentSegment = [];
         }
       }
-
-      // Son segmenti kaydet
       if (currentSegment.length >= 2) {
-        segments.add(DrawStroke(
-          color: stroke.color,
-          size: stroke.size,
-          points: List.from(currentSegment),
-        ));
+        segments.add(DrawStroke(color: stroke.color, size: stroke.size, points: List.from(currentSegment)));
       }
-
       newStrokes.addAll(segments);
     }
+    setState(() => _strokes = newStrokes);
+  }
 
-    setState(() {
-      _strokes = newStrokes;
+  // === GERİ AL / İLERİ AL ===
+
+  void _undo() {
+    if (_placedStickers.isNotEmpty) {
+      setState(() {
+        _undoStickers.add(_placedStickers.removeLast());
+      });
+      return;
+    }
+    if (_strokes.isNotEmpty) {
+      setState(() => _redoStack.add(_strokes.removeLast()));
+    }
+  }
+
+  final List<StickerItem> _undoStickers = [];
+
+  void _redo() {
+    if (_redoStack.isNotEmpty) {
+      setState(() => _strokes.add(_redoStack.removeLast()));
+    }
+  }
+
+  // === SAYFA DEĞİŞTİRME ===
+
+  void _changePage(int delta) {
+    final newIndex = _currentPage + delta;
+    if (newIndex >= 0 && newIndex < widget.imagePaths.length) {
+      _completeDrawing();
+      setState(() {
+        _currentPage = newIndex;
+        _strokes.clear();
+        _redoStack.clear();
+        _placedStickers.clear();
+        _undoStickers.clear();
+      });
+    }
+  }
+
+  // === TAMAMLAMA ===
+
+  Future<void> _completeDrawing() async {
+    if (_strokes.isEmpty && _placedStickers.isEmpty) return;
+    final result = await AchievementService.instance.completeDrawing();
+    setState(() => _showSparkle = true);
+    _sparkleController.forward(from: 0);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⭐ +1 Yıldız! Toplam: ${result['stars']}'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _showSparkle = false);
     });
   }
 
-  void _clearDrawing() {
-    setState(() {
-      _strokes.clear();
-      _currentStroke = null;
-    });
-  }
+  // === KAYDETME ===
 
-  Future<void> _saveDrawing() async {
+  void _saveDrawing() async {
     try {
       final directory = await getApplicationDocumentsDirectory();
       final savedDir = Directory('${directory.path}/saved_drawings');
-      
-      if (!await savedDir.exists()) {
-        await savedDir.create(recursive: true);
-      }
-      
+      if (!await savedDir.exists()) await savedDir.create(recursive: true);
       final fileName = 'drawing_${DateTime.now().millisecondsSinceEpoch}.txt';
       final file = File('${savedDir.path}/$fileName');
-      
-      // Çizim verilerini kaydet
       final data = _strokes.map((s) => '${s.color.value},${s.size},${s.points.map((p) => '${p.dx},${p.dy}').join(';')}').join('\n');
       await file.writeAsString(data);
-      
+      await AchievementService.instance.saveDrawing(file.path);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Çizim kaydedildi! 💾'),
-            backgroundColor: Colors.green,
-          ),
+          const SnackBar(content: Text('💾 Kaydedildi!'), backgroundColor: Colors.green, duration: Duration(milliseconds: 800)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Kaydetme hatası: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
-  void _undoLastStroke() {
-    if (_strokes.isNotEmpty) {
-      setState(() {
-        _strokes.removeLast();
-      });
-    }
-  }
-
-  void _changePage(int delta) {
-    final newIndex = _currentPage + delta;
-    if (newIndex >= 0 && newIndex < widget.imagePaths.length) {
-      setState(() {
-        _currentPage = newIndex;
-        _strokes.clear();
-        _currentStroke = null;
-      });
-    }
-  }
-
-  void _selectTool(String tool) {
-    setState(() {
-      if (tool == 'silgi') {
-        _isErasing = true;
-        _showSubTools = false;
-      } else {
-        _isErasing = false;
-        _selectedTool = tool;
-        _showSubTools = true;
-        if (tool == 'kalem') {
-          _selectedSubTool = 'HB';
-          _brushSize = 2.0;
-        } else {
-          _selectedSubTool = 'Sulu';
-          _brushSize = 12.0;
-        }
+  void _startAutoSave() {
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(minutes: 2));
+      if (_hasUnsavedChanges && _strokes.isNotEmpty) {
+        _saveDrawingSilently();
+        _hasUnsavedChanges = false;
       }
+      return true;
     });
   }
 
-  void _selectSubTool(String subTool) {
-    setState(() {
-      _selectedSubTool = subTool;
-      _showSubTools = false;
-
-      if (_selectedTool == 'kalem') {
-        final pencil = _pencilGrades.firstWhere((p) => p['grade'] == subTool);
-        _brushSize = pencil['size'] as double;
-      } else {
-        final brush = _brushStyles.firstWhere((b) => b['style'] == subTool);
-        _brushSize = brush['size'] as double;
-      }
-    });
+  void _saveDrawingSilently() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final savedDir = Directory('${directory.path}/saved_drawings');
+      if (!await savedDir.exists()) await savedDir.create(recursive: true);
+      final fileName = 'drawing_${DateTime.now().millisecondsSinceEpoch}.txt';
+      final file = File('${savedDir.path}/$fileName');
+      final data = _strokes.map((s) => '${s.color.value},${s.size},${s.points.map((p) => '${p.dx},${p.dy}').join(';')}').join('\n');
+      await file.writeAsString(data);
+      await AchievementService.instance.saveDrawing(file.path);
+    } catch (e) {}
   }
+
+  // === ANA SAYFA ===
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            // Tablet/Desktop için geniş düzen
-            final isWideScreen = constraints.maxWidth > 600;
-
-            if (isWideScreen) {
-              return _buildWideLayout();
-            } else {
-              return _buildNarrowLayout();
-            }
-          },
+        child: Column(
+          children: [
+            _buildTopBar(),
+            Expanded(child: _buildDrawingArea()),
+            _buildBottomPanel(),
+          ],
         ),
       ),
-    );
-  }
-
-  /// Geniş ekran düzeni (tablet/desktop)
-  Widget _buildWideLayout() {
-    return Row(
-      children: [
-        // Sol taraf: Boyama alanı
-        Expanded(
-          flex: 3,
-          child: Column(
-            children: [
-              _buildTopBar(),
-              Expanded(child: _buildDrawingArea()),
-            ],
-          ),
-        ),
-        // Sağ taraf: Araçlar
-        Container(
-          width: 280,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(left: BorderSide(color: Colors.black, width: 2)),
-          ),
-          child: _buildToolsPanel(),
-        ),
-      ],
-    );
-  }
-
-  /// Dar ekran düzeni (telefon)
-  Widget _buildNarrowLayout() {
-    return Column(
-      children: [
-        _buildTopBar(),
-        Expanded(child: _buildDrawingArea()),
-        _buildBottomPanel(),
-      ],
     );
   }
 
   Widget _buildTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.black, width: 2)),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: Colors.black, width: 2))),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, size: 22),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-          const SizedBox(width: 8),
+          IconButton(icon: const Icon(Icons.arrow_back, size: 20), onPressed: () => Navigator.pop(context), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${widget.categoryIcon} ${widget.categoryName}',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-                ),
-                Text(
-                  'Sayfa ${_currentPage + 1} / ${widget.imagePaths.length}',
-                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                ),
+                Text('${widget.categoryIcon} ${widget.categoryName}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                Text('Sayfa ${_currentPage + 1} / ${widget.imagePaths.isEmpty ? 1 : widget.imagePaths.length}', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
               ],
             ),
           ),
-          _buildSmallButton(icon: Icons.undo, onTap: _strokes.isNotEmpty ? _undoLastStroke : null),
-          const SizedBox(width: 6),
-          _buildSmallButton(icon: Icons.delete_outline, onTap: _strokes.isNotEmpty ? _clearDrawing : null),
-          const SizedBox(width: 6),
+          _buildSmallButton(icon: Icons.undo, onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty) ? _undo : null),
+          _buildSmallButton(icon: Icons.redo, onTap: _redoStack.isNotEmpty ? _redo : null),
           _buildSmallButton(icon: Icons.save, onTap: _strokes.isNotEmpty ? _saveDrawing : null),
-          const SizedBox(width: 6),
-          if (!widget.isBlankCanvas) ...[
-            _buildSmallButton(
-              icon: Icons.chevron_left,
-              onTap: _currentPage > 0 ? () => _changePage(-1) : null,
-            ),
-            const SizedBox(width: 4),
-            _buildSmallButton(
-              icon: Icons.chevron_right,
-              onTap: _currentPage < widget.imagePaths.length - 1 ? () => _changePage(1) : null,
-            ),
+          _buildSmallButton(icon: Icons.delete_outline, onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty) ? () => setState(() { _strokes.clear(); _redoStack.clear(); _placedStickers.clear(); _undoStickers.clear(); }) : null),
+          if (!widget.isBlankCanvas && widget.imagePaths.length > 1) ...[
+            _buildSmallButton(icon: Icons.chevron_left, onTap: _currentPage > 0 ? () => _changePage(-1) : null),
+            _buildSmallButton(icon: Icons.chevron_right, onTap: _currentPage < widget.imagePaths.length - 1 ? () => _changePage(1) : null),
           ],
         ],
       ),
@@ -372,20 +329,18 @@ class _ColoringPageState extends State<ColoringPage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: isActive ? Colors.white : Colors.grey[100],
-          border: Border.all(color: isActive ? Colors.black : Colors.grey[300]!, width: 2),
-        ),
-        child: Icon(icon, size: 16, color: isActive ? Colors.black : Colors.grey[400]),
+        width: 28, height: 28, margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(color: isActive ? Colors.white : Colors.grey[100], border: Border.all(color: isActive ? Colors.black : Colors.grey[300]!, width: 1)),
+        child: Icon(icon, size: 14, color: isActive ? Colors.black : Colors.grey[400]),
       ),
     );
   }
 
+  // === ÇİZİM ALANI ===
+
   Widget _buildDrawingArea() {
     return Padding(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(4),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -393,43 +348,97 @@ class _ColoringPageState extends State<ColoringPage> {
           boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(3, 3))],
         ),
         child: ClipRect(
-          child: GestureDetector(
-            onPanStart: (details) => _startDrawing(details.localPosition),
-            onPanUpdate: (details) => _continueDrawing(details.localPosition),
-            onPanEnd: (details) => _endDrawing(),
-            child: Stack(
-              children: [
-                // Boş tuval ise sadece beyaz arka plan
-                if (widget.isBlankCanvas)
-                  const Positioned.fill(child: ColoredBox(color: Colors.white)),
-                
-                // Resim varsa arka plan resmi
-                if (!widget.isBlankCanvas)
-                  Positioned.fill(
-                    child: _buildImageWithFallback(),
-                  ),
+          child: Stack(
+            children: [
+              // Arka plan resmi - KİLİTLİ
+              if (widget.isBlankCanvas)
+                const Positioned.fill(child: ColoredBox(color: Colors.white)),
+              if (!widget.isBlankCanvas)
+                Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
 
-                // Sadece kullanıcının çizdikleri - ClipRect ile sınırlı
-                ClipRect(
+              // Çizim katmanı
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onPanStart: (details) => _startDrawing(details.localPosition),
+                  onPanUpdate: (details) => _continueDrawing(details.localPosition),
+                  onPanEnd: (details) => _endDrawing(),
                   child: CustomPaint(
                     size: Size.infinite,
                     painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
                   ),
                 ),
-              ],
-            ),
+              ),
+
+              // Sticker'lar - sürüklenebilir ve silinebilir
+              ..._placedStickers.asMap().entries.map((entry) {
+                final index = entry.key;
+                final sticker = entry.value;
+                return Positioned(
+                  left: sticker.x - 20,
+                  top: sticker.y - 20,
+                  child: GestureDetector(
+                    // Sürükleme
+                    onPanUpdate: (details) {
+                      setState(() {
+                        sticker.x += details.delta.dx;
+                        sticker.y += details.delta.dy;
+                      });
+                    },
+                    // Uzun basarak silme
+                    onLongPress: () {
+                      setState(() {
+                        _placedStickers.removeAt(index);
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Sticker silindi'), backgroundColor: Colors.orange, duration: Duration(milliseconds: 500)),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(sticker.emoji, style: const TextStyle(fontSize: 36)),
+                    ),
+                  ),
+                );
+              }),
+
+              // Parıltı efekti
+              if (_showSparkle) ..._buildSparkles(),
+            ],
           ),
         ),
       ),
     );
   }
 
+  List<Widget> _buildSparkles() {
+    final random = Random();
+    return List.generate(15, (index) {
+      return Positioned(
+        left: random.nextDouble() * 400,
+        top: random.nextDouble() * 600,
+        child: AnimatedBuilder(
+          animation: _sparkleController,
+          builder: (context, child) {
+            return Opacity(
+              opacity: (_sparkleController.value * 2 - index * 0.1).clamp(0.0, 1.0),
+              child: Text(['✨', '⭐', '🌟', '💫'][index % 4], style: TextStyle(fontSize: 20 + random.nextDouble() * 20)),
+            );
+          },
+        ),
+      );
+    });
+  }
+
+  // === BOTTOM PANEL ===
+
   Widget _buildBottomPanel() {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.black, width: 2)),
-      ),
+      decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.black, width: 2))),
       child: _buildToolsPanel(),
     );
   }
@@ -439,19 +448,12 @@ class _ColoringPageState extends State<ColoringPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Boyut slider'ı
           _buildSizeSlider(),
-
-          // Renk paleti
           _buildColorPalette(),
-
-          // Araçlar
           _buildToolsRow(),
-
-          // Alt araç menüsü
+          if (_stickerMode) _buildStickerBar(),
           if (_showSubTools) _buildSubToolsMenu(),
-
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -459,70 +461,23 @@ class _ColoringPageState extends State<ColoringPage> {
 
   Widget _buildSizeSlider() {
     final maxSize = _isErasing ? 30.0 : (_selectedTool == 'fırça' ? 20.0 : 12.0);
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
         children: [
-          // Küçük daire
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(color: Colors.black, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 8),
-
-          // Slider
+          Container(width: 10, height: 10, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle)),
           Expanded(
             child: SliderTheme(
-              data: SliderThemeData(
-                activeTrackColor: Colors.black,
-                inactiveTrackColor: Colors.grey[300],
-                thumbColor: Colors.black,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-              ),
-              child: Slider(
-                value: _brushSize,
-                min: 1.0,
-                max: maxSize,
-                onChanged: (value) {
-                  setState(() {
-                    _brushSize = value;
-                  });
-                },
-              ),
+              data: SliderThemeData(activeTrackColor: Colors.black, inactiveTrackColor: Colors.grey[300], thumbColor: Colors.black, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6)),
+              child: Slider(value: _brushSize, min: 1.0, max: maxSize, onChanged: (v) => setState(() => _brushSize = v)),
             ),
           ),
-          const SizedBox(width: 8),
-
-          // Büyük daire
+          Container(width: 16, height: 16, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle)),
+          const SizedBox(width: 4),
           Container(
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(color: Colors.black, shape: BoxShape.circle),
-          ),
-
-          const SizedBox(width: 8),
-
-          // Boyut göstergesi
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.black, width: 2),
-            ),
-            child: Center(
-              child: Container(
-                width: _brushSize * 2,
-                height: _brushSize * 2,
-                decoration: BoxDecoration(
-                  color: _isErasing ? Colors.red : Colors.black,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
+            width: 32, height: 32,
+            decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.black, width: 1)),
+            child: Center(child: Container(width: _brushSize * 2, height: _brushSize * 2, decoration: BoxDecoration(color: _isErasing ? Colors.red : Colors.black, shape: BoxShape.circle))),
           ),
         ],
       ),
@@ -547,42 +502,21 @@ class _ColoringPageState extends State<ColoringPage> {
       Colors.deepOrange[700]!, Colors.deepOrange, Colors.deepOrange[200]!,
       Colors.brown[800]!, Colors.brown, Colors.brown[200]!,
     ];
-
     return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: colors.length,
         itemBuilder: (context, index) {
           final color = colors[index];
           final isSelected = _selectedColor == color && !_isErasing;
-          final isBlack = color == Colors.black;
-          final isWhite = color == Colors.white;
-
           return GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedColor = color;
-                _isErasing = false;
-                _selectedTool = 'kalem';
-              });
-            },
+            onTap: () => setState(() { _selectedColor = color; _isErasing = false; _selectedTool = 'kalem'; _stickerMode = false; }),
             child: Container(
-              width: 30,
-              height: 30,
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected ? Colors.black : (isBlack || isWhite ? Colors.grey : color),
-                  width: isSelected ? 3 : 2,
-                ),
-              ),
-              child: isSelected
-                  ? Icon(Icons.check, size: 12, color: isWhite ? Colors.black : Colors.white)
-                  : null,
+              width: 26, height: 26, margin: const EdgeInsets.symmetric(horizontal: 1),
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: isSelected ? Colors.black : Colors.grey, width: isSelected ? 2 : 1)),
+              child: isSelected ? Icon(Icons.check, size: 10, color: color == Colors.white ? Colors.black : Colors.white) : null,
             ),
           );
         },
@@ -592,79 +526,39 @@ class _ColoringPageState extends State<ColoringPage> {
 
   Widget _buildToolsRow() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildToolButton(
-            icon: Icons.edit,
-            label: 'Kalem',
-            subLabel: _selectedTool == 'kalem' ? _selectedSubTool : '',
-            isActive: _selectedTool == 'kalem' && !_isErasing,
-            onTap: () => _selectTool('kalem'),
-          ),
-          const SizedBox(width: 8),
-          _buildToolButton(
-            icon: Icons.brush,
-            label: 'Fırça',
-            subLabel: _selectedTool == 'fırça' ? _selectedSubTool : '',
-            isActive: _selectedTool == 'fırça' && !_isErasing,
-            onTap: () => _selectTool('fırça'),
-          ),
-          const SizedBox(width: 8),
-          _buildToolButton(
-            icon: Icons.auto_fix_high,
-            label: 'Silgi',
-            subLabel: _isErasing ? '${_brushSize.toInt()}px' : '',
-            isActive: _isErasing,
-            onTap: () => _selectTool('silgi'),
-          ),
+          _buildToolButton(icon: Icons.edit, label: 'Kalem', subLabel: _selectedTool == 'kalem' ? _selectedSubTool : '', isActive: _selectedTool == 'kalem' && !_isErasing, onTap: () => setState(() { _selectedTool = 'kalem'; _isErasing = false; _stickerMode = false; _showSubTools = true; })),
+          const SizedBox(width: 4),
+          _buildToolButton(icon: Icons.brush, label: 'Fırça', subLabel: _selectedTool == 'fırça' ? _selectedSubTool : '', isActive: _selectedTool == 'fırça' && !_isErasing, onTap: () => setState(() { _selectedTool = 'fırça'; _isErasing = false; _stickerMode = false; _showSubTools = true; })),
+          const SizedBox(width: 4),
+          _buildToolButton(icon: Icons.auto_fix_high, label: 'Silgi', subLabel: '', isActive: _isErasing, onTap: () => setState(() { _isErasing = true; _stickerMode = false; _showSubTools = false; })),
+          const SizedBox(width: 4),
+          _buildToolButton(icon: Icons.emoji_emotions, label: 'Sticker', subLabel: '', isActive: _stickerMode, onTap: () => setState(() { _stickerMode = !_stickerMode; _isErasing = false; _showSubTools = false; })),
         ],
       ),
     );
   }
 
-  Widget _buildToolButton({
-    required IconData icon,
-    required String label,
-    required String subLabel,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildToolButton({required IconData icon, required String label, required String subLabel, required bool isActive, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.black : Colors.white,
-          border: Border.all(color: Colors.black, width: 2),
-          boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(2, 2))],
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: isActive ? Colors.black : Colors.white, border: Border.all(color: Colors.black, width: 1)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: isActive ? Colors.white : Colors.black),
-            const SizedBox(width: 6),
+            Icon(icon, size: 12, color: isActive ? Colors.white : Colors.black),
+            const SizedBox(width: 2),
             Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: isActive ? Colors.white : Colors.black,
-                  ),
-                ),
-                if (subLabel.isNotEmpty)
-                  Text(
-                    subLabel,
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: isActive ? Colors.grey[300] : Colors.grey[600],
-                    ),
-                  ),
+                Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: isActive ? Colors.white : Colors.black)),
+                if (subLabel.isNotEmpty) Text(subLabel, style: TextStyle(fontSize: 7, color: isActive ? Colors.grey[300] : Colors.grey[600])),
               ],
             ),
           ],
@@ -673,271 +567,167 @@ class _ColoringPageState extends State<ColoringPage> {
     );
   }
 
+  Widget _buildStickerBar() {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(color: Colors.yellow[50], border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 4, top: 2),
+            child: Text('📍 Ekrana dokunarak sticker koy, sürükleerek taşı, uzun basarak sil', style: TextStyle(fontSize: 8, color: Colors.grey)),
+          ),
+          Expanded(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _stickers.length,
+              itemBuilder: (context, index) {
+                final sticker = _stickers[index];
+                final isSelected = _selectedSticker == sticker;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedSticker = sticker),
+                  child: Container(
+                    width: 36, height: 36, margin: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.yellow[200] : Colors.white,
+                      border: Border.all(color: isSelected ? Colors.black : Colors.grey, width: isSelected ? 2 : 1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Center(child: Text(sticker, style: const TextStyle(fontSize: 20))),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSubToolsMenu() {
     if (_selectedTool == 'kalem') {
-      return _buildPencilMenu();
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: Colors.grey[100], border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1))),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: _pencilGrades.map((p) {
+          final grade = p['grade'] as String;
+          final isSelected = _selectedSubTool == grade;
+          return GestureDetector(
+            onTap: () => setState(() { _selectedSubTool = grade; _brushSize = p['size'] as double; _showSubTools = false; }),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(color: isSelected ? Colors.black : Colors.white, border: Border.all(color: Colors.black, width: 1)),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(grade, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: isSelected ? Colors.white : Colors.black)),
+                Text(p['desc'] as String, style: TextStyle(fontSize: 6, color: isSelected ? Colors.grey[300] : Colors.grey[600])),
+              ]),
+            ),
+          );
+        }).toList()),
+      );
     } else if (_selectedTool == 'fırça') {
-      return _buildBrushMenu();
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: Colors.grey[100], border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1))),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: _brushStyles.map((b) {
+          final style = b['style'] as String;
+          final isSelected = _selectedSubTool == style;
+          return GestureDetector(
+            onTap: () => setState(() { _selectedSubTool = style; _brushSize = b['size'] as double; _showSubTools = false; }),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(color: isSelected ? Colors.black : Colors.white, border: Border.all(color: Colors.black, width: 1)),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(style, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: isSelected ? Colors.white : Colors.black)),
+                Text(b['desc'] as String, style: TextStyle(fontSize: 6, color: isSelected ? Colors.grey[300] : Colors.grey[600])),
+              ]),
+            ),
+          );
+        }).toList()),
+      );
     }
     return const SizedBox.shrink();
   }
 
-  Widget _buildPencilMenu() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('✏️ Kalem Kalınlığı', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: _pencilGrades.map((p) {
-              final grade = p['grade'] as String;
-              final isSelected = _selectedSubTool == grade;
-
-              return GestureDetector(
-                onTap: () => _selectSubTool(grade),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.black : Colors.white,
-                    border: Border.all(color: Colors.black, width: 2),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        grade,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: isSelected ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      Text(
-                        p['desc'] as String,
-                        style: TextStyle(
-                          fontSize: 8,
-                          color: isSelected ? Colors.grey[300] : Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBrushMenu() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('🖌️ Fırça Türü', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: _brushStyles.map((b) {
-              final style = b['style'] as String;
-              final isSelected = _selectedSubTool == style;
-
-              return GestureDetector(
-                onTap: () => _selectSubTool(style),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.black : Colors.white,
-                    border: Border.all(color: Colors.black, width: 2),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        style,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: isSelected ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      Text(
-                        b['desc'] as String,
-                        style: TextStyle(
-                          fontSize: 8,
-                          color: isSelected ? Colors.grey[300] : Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildImageWithFallback() {
-    // Index kontrolü
     if (_currentPage >= widget.imagePaths.length) {
-      return const Center(
-        child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-      );
+      return const Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey));
     }
-    
     final currentPath = widget.imagePaths[_currentPage];
-
-    // Özel resim ise (dosya yolu - .png veya .jpg)
     if (widget.isCustomImage) {
-      return Image.file(
-        File(currentPath),
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-                SizedBox(height: 8),
-                Text('Resim yüklenemedi', style: TextStyle(color: Colors.grey)),
-              ],
-            ),
-          );
-        },
-      );
+      return Image.file(File(currentPath), fit: BoxFit.contain, errorBuilder: (c, e, s) => const Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey)));
     }
-
-    // Boş tuval
-    if (widget.isBlankCanvas || widget.imagePaths.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    // Path'ten index numarasını çıkar
+    if (widget.isBlankCanvas || widget.imagePaths.isEmpty) return const SizedBox.shrink();
     final folderName = _getFolderName();
     final regex = RegExp(r'_(\d+)\.png$');
     final match = regex.firstMatch(currentPath);
-    
     if (match != null) {
       final imageIndex = int.parse(match.group(1)!);
-      
-      // Mevcut yolu dene
-      return Image.asset(
-        currentPath,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          // Bulunamadıysa 3 haneli formatı dene
-          String path3h = 'assets/images/$folderName/${folderName}_${imageIndex.toString().padLeft(3, '0')}.png';
-          return Image.asset(
-            path3h,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error2, stackTrace2) {
-              // O da bulunamadıysa 1-2 haneli formatı dene
-              String path12h = 'assets/images/$folderName/${folderName}_$imageIndex.png';
-              return Image.asset(
-                path12h,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error3, stackTrace3) {
-                  return const Center(
-                    child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-                  );
-                },
-              );
-            },
-          );
-        },
-      );
+      return Image.asset(currentPath, fit: BoxFit.contain, errorBuilder: (c, e, s) {
+        return Image.asset('assets/images/$folderName/${folderName}_${imageIndex.toString().padLeft(3, '0')}.png', fit: BoxFit.contain, errorBuilder: (c2, e2, s2) {
+          return Image.asset('assets/images/$folderName/${folderName}_$imageIndex.png', fit: BoxFit.contain, errorBuilder: (c3, e3, s3) => const Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey)));
+        });
+      });
     }
-    
-    // Regex eşleşmezse doğrudan yolu dene
-    return Image.asset(
-      currentPath,
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) {
-        return const Center(
-          child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-        );
-      },
-    );
+    return Image.asset(currentPath, fit: BoxFit.contain, errorBuilder: (c, e, s) => const Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey)));
   }
 
   String _getFolderName() {
     const folderMap = {
-      'Çiftlik': 'ciftlik', 'Deniz Altı': 'deniz_alti', 'Dinozor': 'dinozor',
-      'Doğa': 'doga', 'Doğa Gökyüzü': 'doga_gokyuzu', 'Emoji': 'emoji',
-      'Erkek Karakter': 'erkek_karakter', 'Harfler': 'harfler', 'İnşaat': 'insaat',
-      'Kahramanlar': 'kahraman', 'Kız Karakter': 'kiz_karakter', 'Meslekler': 'meslekler',
-      'Meyveler': 'meyveler', 'Okyanus': 'okyanus', 'Oyuncaklar': 'oyuncak',
-      'Robotlar': 'robot', 'Sayılar': 'sayilar', 'Sevimli Dostlar': 'sevimli_dostlar',
-      'Tamamlayıcı': 'tamamlayici', 'Taşıtlar': 'tasitlar', 'Uzay': 'uzay',
-      'Vahşi Dostlar': 'vahsi_dostlar', 'Yiyecekler': 'yiyecekler',
+      'Çiftlik': 'ciftlik', 'Deniz Altı': 'deniz_alti', 'Dinozor': 'dinozor', 'Doğa': 'doga',
+      'Doğa Gökyüzü': 'doga_gokyuzu', 'Emoji': 'emoji', 'Erkek Karakter': 'erkek_karakter',
+      'Harfler': 'harfler', 'İnşaat': 'insaat', 'Kahramanlar': 'kahraman', 'Kız Karakter': 'kiz_karakter',
+      'Meslekler': 'meslekler', 'Meyveler': 'meyveler', 'Okyanus': 'okyanus', 'Oyuncaklar': 'oyuncak',
+      'Robotlar': 'robot', 'Sayılar': 'sayilar', 'Sevimli Dostlar': 'sevimli_dostlar', 'Tamamlayıcı': 'tamamlayici',
+      'Taşıtlar': 'tasitlar', 'Uzay': 'uzay', 'Vahşi Dostlar': 'vahsi_dostlar', 'Yiyecekler': 'yiyecekler',
     };
     return folderMap[widget.categoryName] ?? 'ciftlik';
   }
 }
 
-/// Çizim çizgisi
+// === MODELLER ===
+
+class StickerItem {
+  String emoji;
+  double x;
+  double y;
+  StickerItem({required this.emoji, required this.x, required this.y});
+}
+
 class DrawStroke {
   final Color color;
   final double size;
   final List<Offset> points;
   final bool isEraser;
-
-  DrawStroke({
-    required this.color,
-    required this.size,
-    required this.points,
-    this.isEraser = false,
-  });
+  DrawStroke({required this.color, required this.size, required this.points, this.isEraser = false});
 }
 
-/// Çizim painter'ı
 class StrokePainter extends CustomPainter {
   final List<DrawStroke> strokes;
   final DrawStroke? currentStroke;
-
   StrokePainter({required this.strokes, this.currentStroke});
 
   @override
   void paint(Canvas canvas, Size size) {
     for (final stroke in strokes) {
-      _drawStroke(canvas, stroke);
+      if (stroke.points.length < 2) continue;
+      final paint = Paint()..color = stroke.color..strokeWidth = stroke.size..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round..style = PaintingStyle.stroke;
+      final path = Path()..moveTo(stroke.points[0].dx, stroke.points[0].dy);
+      for (int i = 1; i < stroke.points.length; i++) {
+        path.lineTo(stroke.points[i].dx, stroke.points[i].dy);
+      }
+      canvas.drawPath(path, paint);
     }
-    if (currentStroke != null && !currentStroke!.isEraser) {
-      _drawStroke(canvas, currentStroke!);
+    if (currentStroke != null && currentStroke!.points.length >= 2) {
+      final paint = Paint()..color = currentStroke!.color..strokeWidth = currentStroke!.size..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round..style = PaintingStyle.stroke;
+      final path = Path()..moveTo(currentStroke!.points[0].dx, currentStroke!.points[0].dy);
+      for (int i = 1; i < currentStroke!.points.length; i++) {
+        path.lineTo(currentStroke!.points[i].dx, currentStroke!.points[i].dy);
+      }
+      canvas.drawPath(path, paint);
     }
-  }
-
-  void _drawStroke(Canvas canvas, DrawStroke stroke) {
-    if (stroke.points.length < 2) return;
-
-    final paint = Paint()
-      ..color = stroke.color
-      ..strokeWidth = stroke.size
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-
-    final path = Path();
-    path.moveTo(stroke.points[0].dx, stroke.points[0].dy);
-
-    for (int i = 1; i < stroke.points.length; i++) {
-      path.lineTo(stroke.points[i].dx, stroke.points[i].dy);
-    }
-
-    canvas.drawPath(path, paint);
   }
 
   @override
