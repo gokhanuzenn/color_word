@@ -1,0 +1,80 @@
+name: color_word
+description: "Eğitici çocuk boyama ve kelime öğrenme uygulaması"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # UI & Tema
+  google_fonts: ^6.1.0
+  
+  # State Management
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+  
+  # Veritabanı (Offline-First)
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.2
+  
+  # Ses
+  audioplayers: ^6.1.0
+  
+  # Yardımcılar
+  flutter_svg: ^2.0.10+1
+  uuid: ^4.2.2
+  file_picker: ^6.1.1
+  
+  # Animasyon
+  flutter_animate: ^4.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.8
+  riverpod_generator: ^2.3.9
+  hive_generator: ^2.0.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/images/categories/
+    - assets/images/words/
+    - assets/images/ciftlik/
+    - assets/images/deniz_alti/
+    - assets/images/dinozor/
+    - assets/images/doga/
+    - assets/images/doga_gokyuzu/
+    - assets/images/emoji/
+    - assets/images/erkek_karakter/
+    - assets/images/harfler/
+    - assets/images/insaat/
+    - assets/images/kahraman/
+    - assets/images/kiz_karakter/
+    - assets/images/meslekler/
+    - assets/images/meyveler/
+    - assets/images/okyanus/
+    - assets/images/oyuncak/
+    - assets/images/robot/
+    - assets/images/sayilar/
+    - assets/images/sevimli_dostlar/
+    - assets/images/tamamlayici/
+    - assets/images/tasitlar/
+    - assets/images/uzay/
+    - assets/images/vahsi_dostlar/
+    - assets/images/yiyecekler/
+    - assets/audio/
+    - assets/fonts/
+
+  # fonts:
+  #   - family: CustomFont
+  #     fonts:
+  #       - asset: assets/fonts/CustomFont-Regular.ttf
