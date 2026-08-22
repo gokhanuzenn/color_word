@@ -40,8 +40,13 @@ class AppLocalizations {
   AppLocalizations(this.locale);
 
   /// Mevcut AppLocalizations'ı al
-  static AppLocalizations of(BuildContext context) {
-    return Localizations.of<AppLocalizations>(context, AppLocalizations)!;
+  static AppLocalizations? of(BuildContext context) {
+    return Localizations.of<AppLocalizations>(context, AppLocalizations);
+  }
+
+  /// Varsayılan çevirilerle güvenli erişim
+  static AppLocalizations safe(BuildContext context) {
+    return of(context) ?? AppLocalizations(const Locale('tr', 'TR')).._translations = {};
   }
 
   /// Dil dosyasını yükle

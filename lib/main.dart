@@ -134,17 +134,12 @@ class _SplashScreenState extends State<SplashScreen>
               ),
               const SizedBox(height: 8),
               // Çevrilmiş alt başlık
-              Builder(
-                builder: (context) {
-                  final l10n = AppLocalizations.of(context);
-                  return Text(
-                    l10n.translate('appDescription'),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      color: Color(0xFF6B6B6B),
-                    ),
-                  );
-                },
+              const Text(
+                'Renklerle kelime öğren!',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Color(0xFF6B6B6B),
+                ),
               ),
               const SizedBox(height: 32),
               const CircularProgressIndicator(

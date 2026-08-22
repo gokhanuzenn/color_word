@@ -676,7 +676,7 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
 
   String _getFolderName() {
     const folderMap = {
-      'Çiftlik': 'ciftlik', 'Deniz Altı': 'deniz_alti', 'Dinozor': 'dinozor', 'Doğa': 'doga',
+      'Çiftlik': 'ciftlik', 'Deniz Altı': 'deniz_alti', 'Dinozor': 'dinozor',
       'Doğa Gökyüzü': 'doga_gokyuzu', 'Emoji': 'emoji', 'Erkek Karakter': 'erkek_karakter',
       'Harfler': 'harfler', 'İnşaat': 'insaat', 'Kahramanlar': 'kahraman', 'Kız Karakter': 'kiz_karakter',
       'Meslekler': 'meslekler', 'Meyveler': 'meyveler', 'Okyanus': 'okyanus', 'Oyuncaklar': 'oyuncak',

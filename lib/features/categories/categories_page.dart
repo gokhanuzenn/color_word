@@ -50,14 +50,7 @@ class CategoriesPage extends ConsumerWidget {
       icon: '🦕',
       color: Color(0xFF4CAF50),
     ),
-    // 4. 🌳 Doğa
-    CategoryItem(
-      id: 'doga',
-      name: 'Doğa',
-      icon: '🌳',
-      color: Color(0xFF66BB6A),
-    ),
-    // 5. 🌤️ Doğa Gökyüzü
+    // 4. 🌤️ Doğa Gökyüzü
     CategoryItem(
       id: 'doga_gokyuzu',
       name: 'Doğa Gökyüzü',

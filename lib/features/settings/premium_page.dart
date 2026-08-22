@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
-import '../../data/services/ad_service.dart';
+import '../../data/services/purchase_service.dart';
 
-/// Premium sayfası - Reklamları kaldır ve promo kod
+/// Premium sayfası - $2.99 ile reklamları kaldır
 class PremiumPage extends StatefulWidget {
   const PremiumPage({super.key});
 
@@ -17,29 +17,80 @@ class _PremiumPageState extends State<PremiumPage> {
   bool _isLoading = false;
   String? _message;
   bool _isSuccess = false;
+  bool _isPurchaseAvailable = false;
 
   @override
   void initState() {
     super.initState();
-    _checkPremiumStatus();
+    _initPurchase();
   }
 
-  Future<void> _checkPremiumStatus() async {
-    final isPremium = await AdService.instance.isPremium();
-    setState(() => _isPremium = isPremium);
-  }
-
-  Future<void> _activatePremium() async {
-    // Gerçek uygulamada burada in-app purchase yapılmalı
-    // Şimdilik test amaçlı direkt premium yapıyor
-    await AdService.instance.setPremium(true);
+  Future<void> _initPurchase() async {
+    // Purchase servisini başlat
+    await PurchaseService.instance.init();
+    
+    // Premium durumunu kontrol et
+    final isPremium = await PurchaseService.instance.isPremium();
+    final isAvailable = PurchaseService.instance.isAvailable;
+    
     setState(() {
-      _isPremium = true;
-      _message = 'Premium aktif edildi! 🎉';
-      _isSuccess = true;
+      _isPremium = isPremium;
+      _isPurchaseAvailable = isAvailable;
     });
   }
 
+  /// Gerçek satın alma işlemi ($2.99)
+  Future<void> _buyPremium() async {
+    setState(() {
+      _isLoading = true;
+      _message = null;
+    });
+
+    try {
+      final success = await PurchaseService.instance.buyPremium();
+      
+      if (success) {
+        // Satın alma başladı - dinleyici devam edecek
+        setState(() {
+          _message = 'Satın alma işlemi devam ediyor...';
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _message = 'Satın alma başlatılamadı. Lütfen tekrar deneyin.';
+          _isSuccess = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _message = 'Bir hata oluştu: $e';
+        _isSuccess = false;
+      });
+    }
+  }
+
+  /// Satın alımları geri yükle
+  Future<void> _restorePurchases() async {
+    setState(() {
+      _isLoading = true;
+      _message = null;
+    });
+
+    final success = await PurchaseService.instance.restorePurchases();
+    
+    setState(() {
+      _isLoading = false;
+      if (success) {
+        _message = 'Satın alımlar kontrol ediliyor...';
+      } else {
+        _message = 'Satın alımlar geri yüklenemedi';
+        _isSuccess = false;
+      }
+    });
+  }
+
+  /// Promo kodu uygula
   Future<void> _applyPromoCode() async {
     final code = _promoController.text.trim();
     if (code.isEmpty) {
@@ -55,7 +106,7 @@ class _PremiumPageState extends State<PremiumPage> {
       _message = null;
     });
 
-    final isValid = await AdService.instance.validatePromoCode(code);
+    final isValid = await PurchaseService.instance.validatePromoCode(code);
 
     setState(() {
       _isLoading = false;
@@ -64,7 +115,7 @@ class _PremiumPageState extends State<PremiumPage> {
         _message = 'Kod aktif edildi! Reklamsız kullanım 🎉';
         _isSuccess = true;
       } else {
-        _message = 'Geçersiz kod ❌';
+        _message = 'Geçersiz promo kodu ❌';
         _isSuccess = false;
       }
     });
@@ -135,10 +186,11 @@ class _PremiumPageState extends State<PremiumPage> {
 
             const SizedBox(height: 24),
 
-            // Reklamları Kaldır butonu
+            // Reklamları Kaldır - $2.99
             if (!_isPremium) ...[
+              // Satın Alma Butonu
               GestureDetector(
-                onTap: _activatePremium,
+                onTap: _isLoading ? null : _buyPremium,
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -151,32 +203,63 @@ class _PremiumPageState extends State<PremiumPage> {
                       ),
                     ],
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'REKLAMLARI KALDIR',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: Colors.black, width: 2),
-                        ),
-                        child: const Text(
-                          'SATIN AL',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                  child: _isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
                           ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'REKLAMLARI KALDIR',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(color: Colors.black, width: 2),
+                              ),
+                              child: const Text(
+                                '\$2.99',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.pink,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Geri Yükle Butonu
+              GestureDetector(
+                onTap: _isLoading ? null : _restorePurchases,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.black, width: 2),
+                  ),
+                  child: const Text(
+                    'Satın Alımları Geri Yükle',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue,
+                    ),
                   ),
                 ),
               ),
@@ -214,7 +297,7 @@ class _PremiumPageState extends State<PremiumPage> {
                             controller: _promoController,
                             decoration: InputDecoration(
                               hintText: 'Kodu yaz...',
-                              border: OutlineInputBorder(
+                              border: const OutlineInputBorder(
                                 borderSide: BorderSide(color: Colors.black, width: 2),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -307,7 +390,28 @@ class _PremiumPageState extends State<PremiumPage> {
                   _buildAdvantage('✅', 'Tüm kategorilere erişim'),
                   _buildAdvantage('✅', 'Özel boyama araçları'),
                   _buildAdvantage('✅', 'Reklamsız deneyim'),
+                  _buildAdvantage('✅', 'Ömür boyu erişim'),
                 ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Fiyat bilgisi
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                border: Border.all(color: Colors.blue, width: 2),
+              ),
+              child: const Text(
+                '💡 Tek seferlik ödeme ile ömür boyu reklamsız kullanım!\n'
+                'Yıllık abonelik yok, gizli ücret yok.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.blue,
+                ),
               ),
             ),
           ],

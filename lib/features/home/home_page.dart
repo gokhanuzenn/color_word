@@ -82,7 +82,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
               Builder(
                 builder: (context) {
-                  final l10n = AppLocalizations.of(context);
+                  final l10n = AppLocalizations.safe(context);
                   return Text(
                     l10n.translate('appDescription'),
                     style: const TextStyle(
@@ -139,7 +139,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               // Ana butonlar
               Builder(
                 builder: (context) {
-                  final l10n = AppLocalizations.of(context);
+                  final l10n = AppLocalizations.safe(context);
                   return Column(
                     children: [
                       NeubrutalButton(

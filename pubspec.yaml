@@ -31,6 +31,9 @@ dependencies:
   # Reklamlar (AdMob)
   google_mobile_ads: ^4.0.0
   
+  # Uygulama İçi Satın Alma
+  in_app_purchase: ^3.1.13
+  
   # Yardımcılar
   flutter_svg: ^2.0.10+1
   uuid: ^4.2.2
@@ -66,7 +69,6 @@ flutter:
     - assets/images/ciftlik/
     - assets/images/deniz_alti/
     - assets/images/dinozor/
-    - assets/images/doga/
     - assets/images/doga_gokyuzu/
     - assets/images/emoji/
     - assets/images/erkek_karakter/
