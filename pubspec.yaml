@@ -24,11 +24,15 @@ dependencies:
   
   # Ses
   audioplayers: ^6.1.0
+
+  # Reklamlar (AdMob)
+  google_mobile_ads: ^4.0.0
   
   # Yardımcılar
   flutter_svg: ^2.0.10+1
   uuid: ^4.2.2
   file_picker: ^6.1.1
+  shared_preferences: ^2.2.2
   
   # Animasyon
   flutter_animate: ^4.5.0

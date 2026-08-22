@@ -9,6 +9,7 @@ import '../../core/widgets/neubrutal_button.dart';
 import '../../core/widgets/neubrutal_card.dart';
 import '../../data/providers/app_provider.dart';
 import '../../data/services/custom_image_service.dart';
+import 'premium_page.dart';
 
 /// Ayarlar sayfası
 class SettingsPage extends ConsumerStatefulWidget {
@@ -373,6 +374,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ],
               ),
             ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
+
+            const SizedBox(height: 16),
+
+            // Premium
+            NeubrutalButton(
+              label: '⭐ Premium - Reklamları Kaldır',
+              backgroundColor: Colors.orange,
+              width: double.infinity,
+              height: 60,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PremiumPage(),
+                  ),
+                );
+              },
+            ).animate().fadeIn(delay: 300.ms, duration: 400.ms),
 
             const SizedBox(height: 16),
 

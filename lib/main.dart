@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'core/theme/app_theme.dart';
 import 'data/services/database_service.dart';
 import 'data/services/audio_service.dart';
 import 'data/services/custom_image_service.dart';
+import 'data/services/ad_service.dart';
 import 'features/home/home_page.dart';
 
 void main() async {
@@ -13,10 +15,14 @@ void main() async {
   // Hive'ı başlat
   await Hive.initFlutter();
 
+  // AdMob'u başlat
+  await MobileAds.instance.initialize();
+
   // Servisleri başlat
   await DatabaseService.instance.init();
   await AppAudioService.instance.init();
   await CustomImageService.instance.init();
+  await AdService.instance.isPremium(); // Premium durumunu kontrol et
 
   runApp(
     const ProviderScope(
