@@ -551,26 +551,26 @@ class _ColoringPageState extends State<ColoringPage>
               onScaleEnd: _onScaleEnd,
               child: Stack(
                 children: [
-                  // Zoom ile ölçeklendirme
+                  // Zoom ile ölçeklendirme - hem resim hem çizim birlikte
                   Transform(
                     alignment: Alignment.center,
-                    transform: Matrix4.identity()
-                      ..scale(_scale, _scale),
+                    transform: Matrix4.identity()..scale(_scale, _scale),
                     child: Stack(
                       children: [
+                        // Beyaz arka plan
+                        Positioned.fill(child: ColoredBox(color: Colors.white)),
                         // Arka plan resmi
                         if (!widget.isBlankCanvas)
                           Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
                         if (widget.isBlankCanvas)
-                          Positioned.fill(child: ColoredBox(color: Colors.white)),
+                          const Positioned.fill(child: ColoredBox(color: Colors.white)),
+                        // Çizim katmanı (resimle birlikte)
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
+                          ),
+                        ),
                       ],
-                    ),
-                  ),
-
-                  // Çizim katmanı (Transform dışında - sabit)
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
                     ),
                   ),
 
