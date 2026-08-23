@@ -46,22 +46,27 @@ class DatabaseService {
 
   /// Veritabanını başlat
   Future<void> init() async {
-    // Hive adapter'larını kaydet
-    Hive.registerAdapter(CategoryModelAdapter());
-    Hive.registerAdapter(CategoryTypeAdapter());
-    Hive.registerAdapter(WordModelAdapter());
-    Hive.registerAdapter(ColoringItemModelAdapter());
-    Hive.registerAdapter(UserProgressModelAdapter());
+    try {
+      // Hive adapter'larını kaydet
+      Hive.registerAdapter(CategoryModelAdapter());
+      Hive.registerAdapter(CategoryTypeAdapter());
+      Hive.registerAdapter(WordModelAdapter());
+      Hive.registerAdapter(ColoringItemModelAdapter());
+      Hive.registerAdapter(UserProgressModelAdapter());
 
-    // Box'ları aç
-    _categoryBox = await Hive.openBox<CategoryModel>(AppConstants.progressBox);
-    _wordsBox = await Hive.openBox<WordModel>(AppConstants.wordsBox);
-    _coloringBox = await Hive.openBox<ColoringItemModel>('coloring_box');
-    _progressBox = await Hive.openBox<UserProgressModel>('user_progress');
-    _settingsBox = await Hive.openBox('settings');
+      // Box'ları aç
+      _categoryBox = await Hive.openBox<CategoryModel>(AppConstants.progressBox);
+      _wordsBox = await Hive.openBox<WordModel>(AppConstants.wordsBox);
+      _coloringBox = await Hive.openBox<ColoringItemModel>('coloring_box');
+      _progressBox = await Hive.openBox<UserProgressModel>('user_progress');
+      _settingsBox = await Hive.openBox('settings');
 
-    // İlk yükleme için varsayılan verileri ekle
-    await _seedData();
+      // İlk yükleme için varsayılan verileri ekle
+      await _seedData();
+    } catch (e) {
+      // Veritabanı hatası, uygulama çalışmaya devam etsin
+      rethrow;
+    }
   }
 
   /// Varsayılan verileri oluştur

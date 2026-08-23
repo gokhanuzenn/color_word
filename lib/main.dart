@@ -18,17 +18,29 @@ void main() async {
     await Hive.initFlutter();
     await DatabaseService.instance.init();
   } catch (e) {
-    debugPrint('Başlatma hatası: $e');
+    // Hive hatası, uygulama çalışmaya devam etsin
   }
 
   // Haptic feedback ayarlarını yükle
-  await HapticHelper.init();
+  try {
+    await HapticHelper.init();
+  } catch (e) {
+    // Haptic hatası, devam et
+  }
 
   // Skor servisini başlat
-  await ScoreService.instance.init();
+  try {
+    await ScoreService.instance.init();
+  } catch (e) {
+    // Skor hatası, devam et
+  }
 
   // Reklam servisini başlat
-  await AdService.instance.initialize();
+  try {
+    await AdService.instance.initialize();
+  } catch (e) {
+    // Reklam hatası, uygulama çalışmaya devam etsin
+  }
 
   runApp(
     const ProviderScope(
@@ -63,7 +75,15 @@ class ColorWordApp extends StatelessWidget {
         }
         return const Locale('tr', 'TR');
       },
-      // Doğrudan ana sayfaya git (splash screen kaldırıldı)
+      // Hata yakalayıcı
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.noScaling,
+          ),
+          child: child!,
+        );
+      },
       home: const HomePage(),
     );
   }

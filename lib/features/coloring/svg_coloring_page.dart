@@ -85,7 +85,8 @@ class _SvgColoringPageState extends State<SvgColoringPage>
   void _undo() {
     if (_areaColors.isNotEmpty) {
       setState(() {
-        _areaColors.removeLast();
+        final lastKey = _areaColors.keys.last;
+        _areaColors.remove(lastKey);
       });
       HapticHelper.lightImpact();
     }

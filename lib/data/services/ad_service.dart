@@ -13,14 +13,13 @@ class AdService {
   AdService._();
 
   // === ADMOB ID'LERİ ===
-  // Test modunda test ID'leri kullanılıyor
   static const String appId = 'ca-app-pub-9171283684710932~8151502461';
   
-  // Test reklam ID'leri (geliştirme için - uygulama yayınlanmadan önce)
+  // Test reklam ID'leri
   static const String bannerAdUnitId = 'ca-app-pub-3940256099942544/6300978111';
   static const String interstitialAdUnitId = 'ca-app-pub-3940256099942544/1033173712';
 
-  // Gerçek reklam ID'leri (uygulama yayınlandıktan sonra)
+  // Gerçek reklam ID'leri (uygulama yayınlandıktan sonra aktif et)
   // static const String bannerAdUnitId = 'ca-app-pub-9171283684710932/9463594451';
   // static const String interstitialAdUnitId = 'ca-app-pub-9171283684710932/9407859330';
 
@@ -28,42 +27,59 @@ class AdService {
   bool _showAds = true;
   InterstitialAd? _interstitialAd;
   BannerAd? _bannerAd;
+  bool _isInitialized = false;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
 
   // === ZAMANLAMA ===
   DateTime? _lastInterstitialTime;
   bool _firstAdShown = false;
   Timer? _periodicTimer;
-  VoidCallback? _onAdReady;
 
   /// AdMob'u başlat
   Future<void> initialize() async {
+    if (_isInitialized) return;
+    
     try {
-      // Test cihazı ayarla (geliştirme için)
+      // Premium durumunu kontrol et
+      await _checkPremiumStatus();
+      
+      // AdMob'u başlat
       final initStatus = await MobileAds.instance.initialize();
-      print('✅ AdMob başlatıldı: $initStatus');
+      _isInitialized = true;
       
       // Debug modunda test reklamları için
       if (kDebugMode) {
-        await MobileAds.instance.updateRequestConfiguration(
-          RequestConfiguration(
-            testDeviceIds: ['EMULATOR'],
-          ),
-        );
-        print('✅ Test cihazı ayarlandı: EMULATOR');
+        try {
+          await MobileAds.instance.updateRequestConfiguration(
+            RequestConfiguration(
+              testDeviceIds: ['EMULATOR'],
+            ),
+          );
+        } catch (e) {
+          // Test cihazı ayarlanamadı, devam et
+        }
       }
       
+      // Reklam yükle
       await _loadInterstitialAd();
-      _checkPremiumStatus();
     } catch (e) {
-      print('❌ AdMob başlatma hatası: $e');
+      // AdMob başlatılamadı, uygulama çalışmaya devam etsin
+      _isInitialized = false;
     }
   }
 
   /// Premium durumunu kontrol et
   Future<void> _checkPremiumStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    _isPremium = prefs.getBool('is_premium') ?? false;
-    _showAds = !_isPremium;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _isPremium = prefs.getBool('is_premium') ?? false;
+      _showAds = !_isPremium;
+    } catch (e) {
+      // SharedPreferences hatası, varsayılan değerleri kullan
+      _isPremium = false;
+      _showAds = true;
+    }
   }
 
   Future<bool> isPremium() async {
@@ -72,47 +88,27 @@ class AdService {
   }
 
   Future<void> setPremium(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('is_premium', value);
-    _isPremium = value;
-    _showAds = !value;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_premium', value);
+      _isPremium = value;
+      _showAds = !value;
+    } catch (e) {
+      // Kaydetme hatası
+      _isPremium = value;
+      _showAds = !value;
+    }
   }
 
   bool shouldShowAds() {
-    return !_isPremium && _showAds;
-  }
-
-  // === BANNER REKLAM ===
-  BannerAd createBannerAd() {
-    _bannerAd = BannerAd(
-      adUnitId: bannerAdUnitId,
-      size: AdSize.banner,
-      request: const AdRequest(),
-      listener: BannerAdListener(
-        onAdLoaded: (ad) => print('✅ Banner reklam yüklendi'),
-        onAdFailedToLoad: (ad, error) {
-          print('❌ Banner reklam yüklenemedi: $error');
-          ad.dispose();
-        },
-      ),
-    )..load();
-    return _bannerAd!;
-  }
-
-  void disposeBannerAd() {
-    _bannerAd?.dispose();
-    _bannerAd = null;
+    return !_isPremium && _showAds && _isInitialized;
   }
 
   // === INTERSTITIAL REKLAM ===
   Future<void> _loadInterstitialAd() async {
-    if (!shouldShowAds()) {
-      print('⚠️ Premium kullanıcı, reklam yüklenmiyor');
-      return;
-    }
+    if (!shouldShowAds()) return;
+    if (_retryCount >= _maxRetries) return;
 
-    print('🔄 Interstitial reklam yükleniyor: $interstitialAdUnitId');
-    
     try {
       await InterstitialAd.load(
         adUnitId: interstitialAdUnitId,
@@ -120,19 +116,23 @@ class AdService {
         adLoadCallback: InterstitialAdLoadCallback(
           onAdLoaded: (ad) {
             _interstitialAd = ad;
-            print('✅ Interstitial reklam yüklendi');
-            _onAdReady?.call();
+            _retryCount = 0; // Başarılı, sayacı sıfırla
           },
           onAdFailedToLoad: (error) {
-            print('❌ Interstitial reklam yüklenemedi: ${error.message}');
             _interstitialAd = null;
-            // 30 saniye sonra tekrar dene
-            Future.delayed(const Duration(seconds: 30), () => _loadInterstitialAd());
+            _retryCount++;
+            // Tekrar dene
+            if (_retryCount < _maxRetries) {
+              Future.delayed(
+                Duration(seconds: 30 * _retryCount),
+                () => _loadInterstitialAd(),
+              );
+            }
           },
         ),
       );
     } catch (e) {
-      print('❌ Interstitial reklam hatası: $e');
+      _interstitialAd = null;
     }
   }
 
@@ -177,13 +177,18 @@ class AdService {
       _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
         onAdDismissedFullScreenContent: (ad) {
           ad.dispose();
+          _interstitialAd = null;
           _loadInterstitialAd();
           onAdClosed?.call();
         },
         onAdFailedToShowFullScreenContent: (ad, error) {
           ad.dispose();
+          _interstitialAd = null;
           _loadInterstitialAd();
           onAdClosed?.call();
+        },
+        onAdClicked: (ad) {
+          // Reklama tıklandı
         },
       );
       _interstitialAd!.show();
