@@ -685,80 +685,69 @@ class _ColoringPageState extends State<ColoringPage>
     }
     final path = widget.imagePaths[_currentPage.clamp(0, widget.imagePaths.length - 1)];
     final file = File(path);
-    
+
     // SVG dosyası mı kontrol et
     if (path.toLowerCase().endsWith('.svg')) {
-      // Asset SVG
       if (path.startsWith('assets/')) {
-        return SvgPicture.asset(
-          path,
-          fit: BoxFit.contain,
-          width: double.infinity,
-          height: double.infinity,
+        return ColoredBox(
+          color: Colors.white,
+          child: SvgPicture.asset(path, fit: BoxFit.cover, width: double.infinity, height: double.infinity),
         );
       }
-      // Dosya SVG
-      return SvgPicture.file(
-        file,
-        fit: BoxFit.contain,
-        width: double.infinity,
-        height: double.infinity,
-        errorBuilder: (context, error, stackTrace) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-                const SizedBox(height: 8),
-                Text(path.split(Platform.pathSeparator).last, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-              ],
-            ),
-          );
-        },
+      return ColoredBox(
+        color: Colors.white,
+        child: SvgPicture.file(file, fit: BoxFit.cover, width: double.infinity, height: double.infinity),
       );
     }
-    
-    // PNG/JPG dosyası
-    return Image.file(
-      file,
-      fit: BoxFit.contain,
-      width: double.infinity,
-      height: double.infinity,
-      errorBuilder: (context, error, stackTrace) {
-        final name = path.split(Platform.pathSeparator).last;
-        final category = widget.categoryName.toLowerCase()
-            .replaceAll(' ', '_')
-            .replaceAll('ğ', 'g').replaceAll('ü', 'u')
-            .replaceAll('ş', 's').replaceAll('ı', 'i')
-            .replaceAll('ö', 'o').replaceAll('ç', 'c');
-        // Asset'te SVG var mı kontrol et
-        final svgAssetPath = 'assets/images/$category/${name.replaceAll('.png', '.svg')}';
-        return SvgPicture.asset(
-          svgAssetPath,
+
+    // PNG/JPG dosyası - önce SVG dene
+    final name = path.split(Platform.pathSeparator).last;
+    final category = widget.categoryName.toLowerCase()
+        .replaceAll(' ', '_')
+        .replaceAll('ğ', 'g').replaceAll('ü', 'u')
+        .replaceAll('ş', 's').replaceAll('ı', 'i')
+        .replaceAll('ö', 'o').replaceAll('ç', 'c');
+    final svgPath = 'assets/images/$category/${name.replaceAll('.png', '.svg')}';
+
+    // SVG asset varsa onu kullan
+    return FutureBuilder<bool>(
+      future: _assetExists(svgPath),
+      builder: (context, snapshot) {
+        if (snapshot.data == true) {
+          return ColoredBox(
+            color: Colors.white,
+            child: SvgPicture.asset(svgPath, fit: BoxFit.cover, width: double.infinity, height: double.infinity),
+          );
+        }
+        // PNG göster
+        return Image.file(
+          file,
           fit: BoxFit.contain,
           width: double.infinity,
           height: double.infinity,
-          placeholderBuilder: (context) => Image.asset(
-            'assets/images/$category/$name',
-            fit: BoxFit.contain,
-            width: double.infinity,
-            height: double.infinity,
-            errorBuilder: (context, error, stackTrace) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-                    const SizedBox(height: 8),
-                    Text(name, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                  ],
-                ),
-              );
-            },
-          ),
+          errorBuilder: (context, error, stackTrace) {
+            return Image.asset(
+              'assets/images/$category/$name',
+              fit: BoxFit.contain,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (context, error, stackTrace) {
+                return const Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey));
+              },
+            );
+          },
         );
       },
     );
+  }
+
+  Future<bool> _assetExists(String assetPath) async {
+    try {
+      await DefaultAssetBundle.of(context).load(assetPath);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   List<Widget> _buildSparkles() {
