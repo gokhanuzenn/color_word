@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/utils/haptic_helper.dart';
 import '../../data/services/score_service.dart';
 import 'package:path_provider/path_provider.dart';
@@ -672,6 +673,40 @@ class _ColoringPageState extends State<ColoringPage>
     }
     final path = widget.imagePaths[_currentPage.clamp(0, widget.imagePaths.length - 1)];
     final file = File(path);
+    
+    // SVG dosyası mı kontrol et
+    if (path.toLowerCase().endsWith('.svg')) {
+      // Asset SVG
+      if (path.startsWith('assets/')) {
+        return SvgPicture.asset(
+          path,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+        );
+      }
+      // Dosya SVG
+      return SvgPicture.file(
+        file,
+        fit: BoxFit.contain,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, stackTrace) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+                const SizedBox(height: 8),
+                Text(path.split(Platform.pathSeparator).last, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              ],
+            ),
+          );
+        },
+      );
+    }
+    
+    // PNG/JPG dosyası
     return Image.file(
       file,
       fit: BoxFit.contain,
@@ -684,23 +719,31 @@ class _ColoringPageState extends State<ColoringPage>
             .replaceAll('ğ', 'g').replaceAll('ü', 'u')
             .replaceAll('ş', 's').replaceAll('ı', 'i')
             .replaceAll('ö', 'o').replaceAll('ç', 'c');
-        return Image.asset(
-          'assets/images/$category/$name',
+        // Asset'te SVG var mı kontrol et
+        final svgAssetPath = 'assets/images/$category/${name.replaceAll('.png', '.svg')}';
+        return SvgPicture.asset(
+          svgAssetPath,
           fit: BoxFit.contain,
           width: double.infinity,
           height: double.infinity,
-          errorBuilder: (context, error, stackTrace) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-                  const SizedBox(height: 8),
-                  Text(name, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                ],
-              ),
-            );
-          },
+          placeholderBuilder: (context) => Image.asset(
+            'assets/images/$category/$name',
+            fit: BoxFit.contain,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (context, error, stackTrace) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+                    const SizedBox(height: 8),
+                    Text(name, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              );
+            },
+          ),
         );
       },
     );
