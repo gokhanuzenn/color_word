@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../coloring/coloring_page.dart';
 import '../../data/services/ad_service.dart';
+import '../../core/utils/responsive_helper.dart';
 
 /// Kategori isimlerini klasör isimlerine eşle
 const Map<String, String> _categoryFolderMap = {
@@ -157,8 +158,8 @@ class _CategoryGalleryPageState extends State<CategoryGalleryPage> {
           : Padding(
               padding: const EdgeInsets.all(12),
               child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: ResponsiveHelper.getGridColumns(context),
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
                   childAspectRatio: 0.8,

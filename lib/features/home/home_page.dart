@@ -13,6 +13,7 @@ import '../score/scoreboard_page.dart';
 import '../educational/educational_page.dart';
 import '../../l10n/app_localizations.dart';
 import '../../data/services/score_service.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../data/services/ad_service.dart';
 
 /// Ana sayfa

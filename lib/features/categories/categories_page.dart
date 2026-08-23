@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'category_gallery_page.dart';
 import '../custom_image/custom_image_page.dart';
 import '../coloring/coloring_page.dart';
+import '../../core/utils/responsive_helper.dart';
 
 /// Kategori modeli
 class CategoryItem {
@@ -157,11 +158,14 @@ class CategoriesPage extends StatelessWidget {
   }
 
   Widget _buildCategoryGrid(BuildContext context) {
+    final columns = ResponsiveHelper.getCategoryGridColumns(context);
+    final padding = ResponsiveHelper.getPadding(context);
+    
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(padding),
       child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
           mainAxisSpacing: 16,
           crossAxisSpacing: 16,
           childAspectRatio: 0.85,
