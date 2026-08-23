@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'core/theme/app_theme.dart';
+import 'core/utils/haptic_helper.dart';
 import 'data/services/database_service.dart';
 import 'features/home/home_page.dart';
 import 'l10n/app_localizations.dart';
@@ -17,6 +18,9 @@ void main() async {
   } catch (e) {
     debugPrint('Başlatma hatası: $e');
   }
+
+  // Haptic feedback ayarlarını yükle
+  await HapticHelper.init();
 
   runApp(
     const ProviderScope(

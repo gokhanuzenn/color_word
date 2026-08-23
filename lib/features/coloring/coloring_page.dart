@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/utils/haptic_helper.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../data/services/achievement_service.dart';
 
@@ -142,7 +143,7 @@ class _ColoringPageState extends State<ColoringPage>
         _stickerMode = false;
         _showSubTools = false;
       });
-      HapticFeedback.lightImpact();
+      HapticHelper.lightImpact();
       return;
     }
 
@@ -165,7 +166,7 @@ class _ColoringPageState extends State<ColoringPage>
         _hasUnsavedChanges = true;
         _isFilling = false;
         _isDrawing = false;
-        HapticFeedback.mediumImpact();
+        HapticHelper.mediumImpact();
       } else if (_isErasing) {
         _eraserPosition = localPoint;
         _eraseAtPoint(localPoint);
@@ -246,24 +247,24 @@ class _ColoringPageState extends State<ColoringPage>
   void _undo() {
     if (_placedStickers.isNotEmpty) {
       setState(() => _placedStickers.removeLast());
-      HapticFeedback.lightImpact();
+      HapticHelper.lightImpact();
       return;
     }
     if (_placedTexts.isNotEmpty) {
       setState(() => _placedTexts.removeLast());
-      HapticFeedback.lightImpact();
+      HapticHelper.lightImpact();
       return;
     }
     if (_strokes.isNotEmpty) {
       setState(() => _redoStack.add(_strokes.removeLast()));
-      HapticFeedback.lightImpact();
+      HapticHelper.lightImpact();
     }
   }
 
   void _redo() {
     if (_redoStack.isNotEmpty) {
       setState(() => _strokes.add(_redoStack.removeLast()));
-      HapticFeedback.lightImpact();
+      HapticHelper.lightImpact();
     }
   }
 
@@ -281,7 +282,7 @@ class _ColoringPageState extends State<ColoringPage>
         _placedTexts.clear();
         _transformationController.value = Matrix4.identity();
       });
-      HapticFeedback.mediumImpact();
+      HapticHelper.mediumImpact();
     }
   }
 
@@ -292,7 +293,7 @@ class _ColoringPageState extends State<ColoringPage>
     final result = await AchievementService.instance.completeDrawing();
     setState(() => _showSparkle = true);
     _sparkleController.forward(from: 0);
-    HapticFeedback.heavyImpact();
+    HapticHelper.heavyImpact();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -343,7 +344,7 @@ class _ColoringPageState extends State<ColoringPage>
                   _selectedTool = 'kalem';
                   _showSubTools = false;
                 });
-                HapticFeedback.lightImpact();
+                HapticHelper.lightImpact();
               }
               Navigator.pop(context);
             },
@@ -369,7 +370,7 @@ class _ColoringPageState extends State<ColoringPage>
           .join('\n');
       await file.writeAsString(data);
       await AchievementService.instance.saveDrawing(file.path);
-      HapticFeedback.mediumImpact();
+      HapticHelper.mediumImpact();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -473,7 +474,7 @@ class _ColoringPageState extends State<ColoringPage>
             icon: Icons.delete_outline,
             onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty)
                 ? () {
-                    HapticFeedback.heavyImpact();
+                    HapticHelper.heavyImpact();
                     setState(() {
                       _strokes.clear();
                       _redoStack.clear();
@@ -587,7 +588,7 @@ class _ColoringPageState extends State<ColoringPage>
                                 top: -8,
                                 child: GestureDetector(
                                   onTap: () {
-                                    HapticFeedback.lightImpact();
+                                    HapticHelper.lightImpact();
                                     setState(() => _placedStickers.removeAt(index));
                                   },
                                   child: Container(
@@ -646,7 +647,7 @@ class _ColoringPageState extends State<ColoringPage>
                                 top: -8,
                                 child: GestureDetector(
                                   onTap: () {
-                                    HapticFeedback.lightImpact();
+                                    HapticHelper.lightImpact();
                                     setState(() => _placedTexts.removeAt(index));
                                   },
                                   child: Container(
@@ -863,7 +864,7 @@ class _ColoringPageState extends State<ColoringPage>
           final isSelected = _selectedColor == color && !_isErasing;
           return GestureDetector(
             onTap: () {
-              HapticFeedback.selectionClick();
+              HapticHelper.selectionClick();
               setState(() {
                 _selectedColor = color;
                 _isErasing = false;
@@ -907,7 +908,7 @@ class _ColoringPageState extends State<ColoringPage>
             label: 'Kalem',
             isActive: _selectedTool == 'kalem' && !_isErasing && !_isFilling && !_isTextMode && !_stickerMode,
             onTap: () {
-              HapticFeedback.lightImpact();
+              HapticHelper.lightImpact();
               setState(() {
                 _selectedTool = 'kalem';
                 _isErasing = false;
@@ -923,7 +924,7 @@ class _ColoringPageState extends State<ColoringPage>
             label: 'Fırça',
             isActive: _selectedTool == 'fırça' && !_isErasing,
             onTap: () {
-              HapticFeedback.lightImpact();
+              HapticHelper.lightImpact();
               setState(() {
                 _selectedTool = 'fırça';
                 _isErasing = false;
@@ -939,7 +940,7 @@ class _ColoringPageState extends State<ColoringPage>
             label: 'Silgi',
             isActive: _isErasing,
             onTap: () {
-              HapticFeedback.lightImpact();
+              HapticHelper.lightImpact();
               setState(() {
                 _isErasing = !_isErasing;
                 _isFilling = false;
@@ -954,7 +955,7 @@ class _ColoringPageState extends State<ColoringPage>
             label: 'Kova',
             isActive: _isFilling,
             onTap: () {
-              HapticFeedback.lightImpact();
+              HapticHelper.lightImpact();
               setState(() {
                 _isFilling = !_isFilling;
                 _isErasing = false;
@@ -969,7 +970,7 @@ class _ColoringPageState extends State<ColoringPage>
             label: 'Metin',
             isActive: _isTextMode,
             onTap: () {
-              HapticFeedback.lightImpact();
+              HapticHelper.lightImpact();
               setState(() {
                 _isTextMode = !_isTextMode;
                 _isErasing = false;
@@ -984,7 +985,7 @@ class _ColoringPageState extends State<ColoringPage>
             label: 'Sticker',
             isActive: _stickerMode,
             onTap: () {
-              HapticFeedback.lightImpact();
+              HapticHelper.lightImpact();
               setState(() {
                 _stickerMode = !_stickerMode;
                 _isErasing = false;
@@ -1052,7 +1053,7 @@ class _ColoringPageState extends State<ColoringPage>
           final isSelected = _selectedSubTool == tool;
           return GestureDetector(
             onTap: () {
-              HapticFeedback.lightImpact();
+              HapticHelper.lightImpact();
               setState(() {
                 _selectedSubTool = tool;
                 _showSubTools = false; // Seçim sonrası menüyü kapat

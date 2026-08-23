@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/widgets/neubrutal_button.dart';
 import '../../core/widgets/neubrutal_card.dart';
+import '../../core/utils/haptic_helper.dart';
 import '../../data/providers/app_provider.dart';
 import '../../data/services/custom_image_service.dart';
 import 'premium_page.dart';
@@ -21,6 +22,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _isMuted = false;
+  bool _isHapticEnabled = true;
   List<Map<String, String>> _customImages = [];
   String _selectedCategory = 'space';
   bool _isUploading = false;
@@ -34,8 +36,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _loadSettings() async {
     final audioService = ref.read(audioServiceProvider);
+    await HapticHelper.init();
     setState(() {
       _isMuted = audioService.isMuted;
+      _isHapticEnabled = HapticHelper.isEnabled;
     });
   }
 
@@ -189,6 +193,104 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ],
               ),
             ).animate().fadeIn(duration: 400.ms),
+
+            const SizedBox(height: 16),
+
+            // Haptic Feedback Ayarları
+            NeubrutalCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '📳 Dokunma Hissi',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Dokunma titreşimlerini açıp kapatabilirsiniz',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Haptic Feedback',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            _isHapticEnabled ? 'Açık' : 'Kapalı',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _isHapticEnabled ? Colors.green : Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                      GestureDetector(
+                        onTap: () async {
+                          await HapticHelper.toggle();
+                          setState(() {
+                            _isHapticEnabled = HapticHelper.isEnabled;
+                          });
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 60,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: _isHapticEnabled
+                                ? Colors.green
+                                : AppColors.buttonDanger,
+                            border: Border.all(
+                              color: AppColors.border,
+                              width: 2,
+                            ),
+                          ),
+                          child: AnimatedAlign(
+                            duration: const Duration(milliseconds: 200),
+                            alignment: _isHapticEnabled
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              margin: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(
+                                  color: AppColors.border,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _isHapticEnabled ? '📳' : '📴',
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
 
             const SizedBox(height: 16),
 
