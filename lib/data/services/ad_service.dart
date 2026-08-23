@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 /// AdMob reklam servisi
+/// - İlk açılışta 7 sn interstitial
+/// - Her 2 dakikada bir 7 sn interstitial
+/// - Premium alanlarda reklam yok
 class AdService {
   static AdService? _instance;
   static AdService get instance => _instance ??= AdService._();
@@ -13,27 +17,40 @@ class AdService {
   static const String bannerAdUnitId = 'ca-app-pub-9171283684710932/9463594451';
   static const String interstitialAdUnitId = 'ca-app-pub-9171283684710932/9407859330';
 
+  // === TEST ID'LERİ (geliştirme için) ===
+  // static const String bannerAdUnitId = 'ca-app-pub-3940256099942544/6300978111';
+  // static const String interstitialAdUnitId = 'ca-app-pub-3940256099942544/1033173712';
+
   bool _isPremium = false;
   bool _showAds = true;
-  int _interstitialCounter = 0;
-
   InterstitialAd? _interstitialAd;
   BannerAd? _bannerAd;
+
+  // === ZAMANLAMA ===
+  DateTime? _lastInterstitialTime;
+  bool _firstAdShown = false;
+  Timer? _periodicTimer;
+  VoidCallback? _onAdReady;
 
   /// AdMob'u başlat
   Future<void> initialize() async {
     await MobileAds.instance.initialize();
     await _loadInterstitialAd();
+    _checkPremiumStatus();
   }
 
   /// Premium durumunu kontrol et
-  Future<bool> isPremium() async {
+  Future<void> _checkPremiumStatus() async {
     final prefs = await SharedPreferences.getInstance();
     _isPremium = prefs.getBool('is_premium') ?? false;
+    _showAds = !_isPremium;
+  }
+
+  Future<bool> isPremium() async {
+    await _checkPremiumStatus();
     return _isPremium;
   }
 
-  /// Premium yap
   Future<void> setPremium(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_premium', value);
@@ -41,7 +58,6 @@ class AdService {
     _showAds = !value;
   }
 
-  /// Reklam gösterilmeli mi?
   bool shouldShowAds() {
     return !_isPremium && _showAds;
   }
@@ -70,6 +86,8 @@ class AdService {
 
   // === INTERSTITIAL REKLAM ===
   Future<void> _loadInterstitialAd() async {
+    if (!shouldShowAds()) return;
+
     await InterstitialAd.load(
       adUnitId: interstitialAdUnitId,
       request: const AdRequest(),
@@ -77,30 +95,60 @@ class AdService {
         onAdLoaded: (ad) {
           _interstitialAd = ad;
           print('✅ Interstitial reklam yüklendi');
+          _onAdReady?.call();
         },
         onAdFailedToLoad: (error) {
           print('❌ Interstitial reklam yüklenemedi: $error');
           _interstitialAd = null;
+          // 30 saniye sonra tekrar dene
+          Future.delayed(const Duration(seconds: 30), () => _loadInterstitialAd());
         },
       ),
     );
   }
 
-  /// Interstitial reklam göster (her 3 boyamada bir)
-  void incrementInterstitialCounter() {
-    _interstitialCounter++;
+  /// İlk açılışta reklam göster
+  void showFirstAdIfReady({VoidCallback? onAdClosed}) {
+    if (!shouldShowAds()) {
+      onAdClosed?.call();
+      return;
+    }
+
+    if (!_firstAdShown && _interstitialAd != null) {
+      _firstAdShown = true;
+      _lastInterstitialTime = DateTime.now();
+      showInterstitialAd(onAdClosed: onAdClosed);
+    } else {
+      onAdClosed?.call();
+    }
   }
 
-  bool shouldShowInterstitial() {
-    return _interstitialCounter % 3 == 0 && shouldShowAds();
+  /// Periyodik reklamları başlat (her 2 dakika)
+  void startPeriodicAds() {
+    _periodicTimer?.cancel();
+    _periodicTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
+      if (shouldShowAds() && _lastInterstitialTime != null) {
+        final elapsed = DateTime.now().difference(_lastInterstitialTime!);
+        if (elapsed.inMinutes >= 2) {
+          showInterstitialAd();
+        }
+      }
+    });
   }
 
+  void stopPeriodicAds() {
+    _periodicTimer?.cancel();
+    _periodicTimer = null;
+  }
+
+  /// Interstitial reklam göster
   void showInterstitialAd({VoidCallback? onAdClosed}) {
     if (_interstitialAd != null && shouldShowAds()) {
+      _lastInterstitialTime = DateTime.now();
       _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
         onAdDismissedFullScreenContent: (ad) {
           ad.dispose();
-          _loadInterstitialAd(); // Yeni reklam yükle
+          _loadInterstitialAd();
           onAdClosed?.call();
         },
         onAdFailedToShowFullScreenContent: (ad, error) {
@@ -113,6 +161,11 @@ class AdService {
     } else {
       onAdClosed?.call();
     }
+  }
+
+  /// Reklam hazır mı?
+  bool isAdReady() {
+    return _interstitialAd != null && shouldShowAds();
   }
 
   // === PROMO KOD ===
@@ -134,6 +187,7 @@ class AdService {
   }
 
   void dispose() {
+    _periodicTimer?.cancel();
     _bannerAd?.dispose();
     _interstitialAd?.dispose();
   }

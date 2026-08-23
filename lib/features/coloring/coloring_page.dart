@@ -6,6 +6,7 @@ import '../../core/utils/haptic_helper.dart';
 import '../../data/services/score_service.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../data/services/achievement_service.dart';
+import '../../data/services/ad_service.dart';
 
 class DrawStroke {
   final Color color;
@@ -266,14 +267,19 @@ class _ColoringPageState extends State<ColoringPage>
     final newIndex = _currentPage + delta;
     if (newIndex >= 0 && newIndex < widget.imagePaths.length) {
       _completeDrawing();
-      setState(() {
-        _currentPage = newIndex;
-        _strokes.clear();
-        _redoStack.clear();
-        _placedStickers.clear();
-        _placedTexts.clear();
-      });
-      HapticHelper.mediumImpact();
+      // Sayfa değiştirirken reklam göster
+      AdService.instance.showInterstitialAd(
+        onAdClosed: () {
+          setState(() {
+            _currentPage = newIndex;
+            _strokes.clear();
+            _redoStack.clear();
+            _placedStickers.clear();
+            _placedTexts.clear();
+          });
+          HapticHelper.mediumImpact();
+        },
+      );
     }
   }
 

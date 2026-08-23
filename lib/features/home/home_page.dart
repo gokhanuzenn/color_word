@@ -13,6 +13,7 @@ import '../score/scoreboard_page.dart';
 import '../educational/educational_page.dart';
 import '../../l10n/app_localizations.dart';
 import '../../data/services/score_service.dart';
+import '../../data/services/ad_service.dart';
 
 /// Ana sayfa
 class HomePage extends ConsumerStatefulWidget {
@@ -25,6 +26,21 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   int _logoTapCount = 0;
   DateTime? _lastTapTime;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AdService.instance.showFirstAdIfReady();
+      AdService.instance.startPeriodicAds();
+    });
+  }
+
+  @override
+  void dispose() {
+    AdService.instance.stopPeriodicAds();
+    super.dispose();
+  }
 
   void _onLogoTap() {
     final now = DateTime.now();

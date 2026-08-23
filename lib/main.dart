@@ -6,6 +6,7 @@ import 'core/theme/app_theme.dart';
 import 'core/utils/haptic_helper.dart';
 import 'data/services/database_service.dart';
 import 'data/services/score_service.dart';
+import 'data/services/ad_service.dart';
 import 'features/home/home_page.dart';
 import 'l10n/app_localizations.dart';
 
@@ -25,6 +26,9 @@ void main() async {
 
   // Skor servisini başlat
   await ScoreService.instance.init();
+
+  // Reklam servisini başlat
+  await AdService.instance.initialize();
 
   runApp(
     const ProviderScope(

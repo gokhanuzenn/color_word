@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../coloring/coloring_page.dart';
+import '../../data/services/ad_service.dart';
 
 /// Kategori isimlerini klasör isimlerine eşle
 const Map<String, String> _categoryFolderMap = {
@@ -101,17 +102,22 @@ class _CategoryGalleryPageState extends State<CategoryGalleryPage> {
   }
 
   void _openColoringPage(int index) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ColoringPage(
-          categoryName: widget.categoryName,
-          categoryIcon: widget.categoryIcon,
-          categoryColor: widget.categoryColor,
-          initialImageIndex: index,
-          imagePaths: _imagePaths,
-        ),
-      ),
+    // Boyama sayfasına geçişte reklam göster
+    AdService.instance.showInterstitialAd(
+      onAdClosed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ColoringPage(
+              categoryName: widget.categoryName,
+              categoryIcon: widget.categoryIcon,
+              categoryColor: widget.categoryColor,
+              initialImageIndex: index,
+              imagePaths: _imagePaths,
+            ),
+          ),
+        );
+      },
     );
   }
 
