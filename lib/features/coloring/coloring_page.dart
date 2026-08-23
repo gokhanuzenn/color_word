@@ -121,7 +121,17 @@ class _ColoringPageState extends State<ColoringPage>
     final RenderBox? renderBox =
         _drawingKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return globalPoint;
-    return renderBox.globalToLocal(globalPoint);
+    final localPoint = renderBox.globalToLocal(globalPoint);
+    // Zoom oranına göre düzelt
+    if (_scale != 1.0) {
+      final centerX = renderBox.size.width / 2;
+      final centerY = renderBox.size.height / 2;
+      return Offset(
+        centerX + (localPoint.dx - centerX) / _scale,
+        centerY + (localPoint.dy - centerY) / _scale,
+      );
+    }
+    return localPoint;
   }
 
   // === ÇİZİM ===
@@ -534,34 +544,35 @@ class _ColoringPageState extends State<ColoringPage>
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: GestureDetector(
-            onScaleStart: _onScaleStart,
-            onScaleUpdate: _onScaleUpdate,
-            onScaleEnd: _onScaleEnd,
-            child: Stack(
-              children: [
-                // Zoom ile ölçeklendirme
-                Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.identity()
-                    ..scale(_scale, _scale),
-                  child: Stack(
-                    children: [
-                      // Arka plan resmi
-                      if (!widget.isBlankCanvas)
-                        Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
-                      if (widget.isBlankCanvas)
-                        Positioned.fill(child: ColoredBox(color: Colors.white)),
-
-                      // Çizim katmanı
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
-                        ),
-                      ),
-                    ],
+          child: ClipRect(
+            child: GestureDetector(
+              onScaleStart: _onScaleStart,
+              onScaleUpdate: _onScaleUpdate,
+              onScaleEnd: _onScaleEnd,
+              child: Stack(
+                children: [
+                  // Zoom ile ölçeklendirme
+                  Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()
+                      ..scale(_scale, _scale),
+                    child: Stack(
+                      children: [
+                        // Arka plan resmi
+                        if (!widget.isBlankCanvas)
+                          Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
+                        if (widget.isBlankCanvas)
+                          Positioned.fill(child: ColoredBox(color: Colors.white)),
+                      ],
+                    ),
                   ),
-                ),
+
+                  // Çizim katmanı (Transform dışında - sabit)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
+                    ),
+                  ),
 
                 // Sticker'lar
                 ..._placedStickers.asMap().entries.map((entry) {
@@ -662,6 +673,7 @@ class _ColoringPageState extends State<ColoringPage>
               ],
             ),
           ),
+          ), // ClipRect kapanışı
         ),
       ),
     );
