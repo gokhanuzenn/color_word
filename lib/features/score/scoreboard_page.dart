@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../data/services/score_service.dart';
 
-/// Skor Tablosu Sayfası
-/// Herkes kendi skorunu görür
-/// Kayıt gerekmez, internet gerekmez
+/// Basit Skor Tablosu Sayfası
 class ScoreboardPage extends StatefulWidget {
   const ScoreboardPage({super.key});
 
@@ -15,7 +13,6 @@ class ScoreboardPage extends StatefulWidget {
 class _ScoreboardPageState extends State<ScoreboardPage> {
   Map<String, dynamic> _scoreData = {};
   Map<String, dynamic> _dailyTasks = {};
-  List<Map<String, dynamic>> _earnedBadges = [];
 
   @override
   void initState() {
@@ -27,9 +24,6 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     setState(() {
       _scoreData = ScoreService.instance.getScoreData();
       _dailyTasks = ScoreService.instance.getDailyTasks();
-      _earnedBadges = ScoreService.allBadges
-          .where((b) => ScoreService.instance.earnedBadges.contains(b['id']))
-          .toList();
     });
   }
 
@@ -46,13 +40,11 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _buildRankCard(),
+                    _buildMainStats(),
                     const SizedBox(height: 16),
                     _buildDailyTasks(),
                     const SizedBox(height: 16),
-                    _buildStatsGrid(),
-                    const SizedBox(height: 16),
-                    _buildBadgesSection(),
+                    _buildQuickStats(),
                   ],
                 ),
               ),
@@ -92,12 +84,13 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                 ),
                 Text(
-                  'Kendi skorunu takip et',
+                  'İstatistiklerini gör',
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
             ),
           ),
+          // Toplam yıldız
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -105,17 +98,20 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                 colors: [Color(0xFFFFD700), Color(0xFFFFA000)],
               ),
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(color: Colors.amber.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
-              ],
             ),
-            child: Text(
-              '⭐ ${_scoreData['totalStars'] ?? 0}',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-              ),
+            child: Row(
+              children: [
+                const Text('⭐', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 4),
+                Text(
+                  '${_scoreData['totalStars'] ?? 0}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -123,30 +119,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     );
   }
 
-  Widget _buildRankCard() {
-    final rank = ScoreService.instance.getRank();
-    final starsToNext = ScoreService.instance.getStarsToNextRank();
-    final nextBadge = ScoreService.instance.getNextBadge();
-    final totalStars = _scoreData['totalStars'] ?? 0;
-
-    // Seviye ilerleme hesaplama
-    double progress = 0;
-    if (totalStars < 10) {
-      progress = totalStars / 10;
-    } else if (totalStars < 25) {
-      progress = (totalStars - 10) / 15;
-    } else if (totalStars < 50) {
-      progress = (totalStars - 25) / 25;
-    } else if (totalStars < 100) {
-      progress = (totalStars - 50) / 50;
-    } else if (totalStars < 250) {
-      progress = (totalStars - 100) / 150;
-    } else if (totalStars < 500) {
-      progress = (totalStars - 250) / 250;
-    } else {
-      progress = 1.0;
-    }
-
+  Widget _buildMainStats() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -163,87 +136,62 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       ),
       child: Column(
         children: [
-          // Rozet ikonu
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                rank.split(' ').first,
-                style: const TextStyle(fontSize: 40),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Seviye adı
+          // Toplam yıldız
           Text(
-            rank,
+            '⭐ ${_scoreData['totalStars'] ?? 0}',
             style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
+              fontSize: 48,
+              fontWeight: FontWeight.w900,
               color: Colors.white,
             ),
           ),
           const SizedBox(height: 8),
-          // İlerleme çubuğu
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Seviye İlerlemesi',
-                    style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.8)),
-                  ),
-                  Text(
-                    '$starsToNext ⭐ kaldı',
-                    style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Container(
-                height: 12,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: progress.clamp(0.0, 1.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFFD700), Color(0xFFFFA000)],
-                      ),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            'Toplam Yıldız',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white.withOpacity(0.9),
+            ),
           ),
-          const SizedBox(height: 12),
-          // Sonraki rozet
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              'Sonraki: $nextBadge',
-              style: const TextStyle(fontSize: 12, color: Colors.white),
-            ),
+          const SizedBox(height: 20),
+          // Alt istatistikler
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildStatItem('🎨', '${_scoreData['totalColorings'] ?? 0}', 'Boyama'),
+              Container(width: 1, height: 40, color: Colors.white.withOpacity(0.3)),
+              _buildStatItem('🖼️', '${_scoreData['totalSavedDrawings'] ?? 0}', 'Kayıt'),
+              Container(width: 1, height: 40, color: Colors.white.withOpacity(0.3)),
+              _buildStatItem('🏆', '${_scoreData['earnedBadges'] ?? 0}', 'Rozet'),
+            ],
           ),
         ],
       ),
     ).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.95, 0.95));
+  }
+
+  Widget _buildStatItem(String icon, String value, String label) {
+    return Column(
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 24)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.white.withOpacity(0.8),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildDailyTasks() {
@@ -255,7 +203,6 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 4)),
         ],
@@ -313,7 +260,6 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: done ? Colors.green[300]! : Colors.grey[200]!,
-          width: 1,
         ),
       ),
       child: Row(
@@ -333,7 +279,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
             ),
           ),
           const SizedBox(width: 12),
-          // Görev bilgisi
+          // Bilgi
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,7 +296,6 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    // İlerleme
                     Expanded(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(4),
@@ -400,90 +345,13 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     );
   }
 
-  Widget _buildStatsGrid() {
-    return GridView.count(
-      crossAxisCount: 2,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.5,
-      children: [
-        _buildStatCard(
-          icon: '⭐',
-          label: 'Toplam Yıldız',
-          value: '${_scoreData['totalStars'] ?? 0}',
-          color: const Color(0xFFFFD700),
-        ),
-        _buildStatCard(
-          icon: '🎨',
-          label: 'Toplam Boyama',
-          value: '${_scoreData['totalColorings'] ?? 0}',
-          color: const Color(0xFF4CAF50),
-        ),
-        _buildStatCard(
-          icon: '🏆',
-          label: 'Kazanılan Rozet',
-          value: '${_scoreData['earnedBadges'] ?? 0}',
-          color: const Color(0xFFFF5722),
-        ),
-        _buildStatCard(
-          icon: '📅',
-          label: 'Günlük Boyama',
-          value: '${_scoreData['dailyColorings'] ?? 0}',
-          color: const Color(0xFF2196F3),
-        ),
-      ],
-    ).animate().fadeIn(delay: 200.ms, duration: 400.ms);
-  }
-
-  Widget _buildStatCard({
-    required String icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-        boxShadow: [
-          BoxShadow(color: color.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(icon, style: const TextStyle(fontSize: 28)),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBadgesSection() {
+  Widget _buildQuickStats() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 4)),
         ],
@@ -491,79 +359,36 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.purple[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text('🏆', style: TextStyle(fontSize: 20)),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Rozetlerim',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                  Text(
-                    '${_earnedBadges.length} / ${ScoreService.allBadges.length} kazanıldı',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ],
+          const Text(
+            '📊 Hızlı İstatistikler',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 16),
-          // Tüm rozetler
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: ScoreService.allBadges.map((badge) {
-              final isEarned = _earnedBadges.any((b) => b['id'] == badge['id']);
-              return _buildBadgeItem(badge, isEarned);
-            }).toList(),
-          ),
+          _buildStatRow('📅 Bugünkü Boyama', '${_scoreData['dailyColorings'] ?? 0}'),
+          _buildStatRow('⭐ Bugünkü Yıldız', '${_scoreData['dailyStarsEarned'] ?? 0}'),
+          _buildStatRow('🖼️ Toplam Boyama', '${_scoreData['totalColorings'] ?? 0}'),
+          _buildStatRow('💾 Kayıtlı Çizim', '${_scoreData['totalSavedDrawings'] ?? 0}'),
         ],
       ),
-    ).animate().fadeIn(delay: 300.ms, duration: 400.ms);
+    ).animate().fadeIn(delay: 200.ms, duration: 400.ms);
   }
 
-  Widget _buildBadgeItem(Map<String, dynamic> badge, bool isEarned) {
-    return Container(
-      width: 80,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: isEarned ? Colors.amber[50] : Colors.grey[100],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isEarned ? Colors.amber[300]! : Colors.grey[300]!,
-          width: 1,
-        ),
-      ),
-      child: Column(
+  Widget _buildStatRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            badge['icon'],
-            style: TextStyle(
-              fontSize: 28,
-              color: isEarned ? null : Colors.grey,
-            ),
+            label,
+            style: TextStyle(fontSize: 14, color: Colors.grey[700]),
           ),
-          const SizedBox(height: 4),
           Text(
-            badge['name'],
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: isEarned ? Colors.amber[700] : Colors.grey,
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
