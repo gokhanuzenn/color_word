@@ -91,8 +91,10 @@ class _CategoryGalleryPageState extends State<CategoryGalleryPage> {
     _imagePaths = [];
 
     for (int i = 1; i <= imageCount; i++) {
-      // Tek format kullan - boyama sayfası kendi içinde alternatifi denesin
-      _imagePaths.add('assets/images/$folderName/${folderName}_$i.png');
+      // Farklı isim formatlarını dene: category_1, category_001, category_0
+      String path1 = 'assets/images/$folderName/${folderName}_$i.png';
+      String path2 = 'assets/images/$folderName/${folderName}_${i.toString().padLeft(3, '0')}.png';
+      _imagePaths.add(path1); // Varsayılan format, hata olursa asset errorBuilder düşecek
     }
 
     setState(() => _isLoading = false);
