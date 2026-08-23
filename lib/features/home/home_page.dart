@@ -9,7 +9,10 @@ import '../../core/widgets/neubrutal_card.dart';
 import '../categories/categories_page.dart';
 import '../settings/settings_page.dart';
 import '../settings/admin_page.dart';
+import '../score/scoreboard_page.dart';
+import '../educational/educational_page.dart';
 import '../../l10n/app_localizations.dart';
+import '../../data/services/score_service.dart';
 
 /// Ana sayfa
 class HomePage extends ConsumerStatefulWidget {
@@ -113,6 +116,126 @@ class _HomePageState extends ConsumerState<HomePage> {
                           );
                         },
                       ).animate().fadeIn(delay: 600.ms, duration: 600.ms)
+                          .slideY(begin: 0.3),
+
+                      const SizedBox(height: 16),
+
+                      // Skor Tablosu Butonu
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ScoreboardPage(),
+                            ),
+                          ).then((_) => setState(() {}));
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF667EEA).withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('🏆', style: TextStyle(fontSize: 20)),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Skor Tablosu',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Text(
+                                    '⭐ ${ScoreService.instance.totalStars} yıldız  •  ${ScoreService.instance.getRank()}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Spacer(),
+                              const Icon(Icons.chevron_right, color: Colors.white),
+                            ],
+                          ),
+                        ),
+                      ).animate().fadeIn(delay: 700.ms, duration: 600.ms)
+                          .slideY(begin: 0.3),
+
+                      const SizedBox(height: 16),
+
+                      // Eğitim Oyunları Butonu
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EducationalPage(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF4CAF50).withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('📚', style: TextStyle(fontSize: 20)),
+                              const SizedBox(width: 8),
+                              const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Eğitim Oyunları',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Harf, sayı, şekil öğren',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Spacer(),
+                              const Icon(Icons.chevron_right, color: Colors.white),
+                            ],
+                          ),
+                        ),
+                      ).animate().fadeIn(delay: 750.ms, duration: 600.ms)
                           .slideY(begin: 0.3),
 
                       const SizedBox(height: 16),

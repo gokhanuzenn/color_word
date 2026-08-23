@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/haptic_helper.dart';
 import 'data/services/database_service.dart';
+import 'data/services/score_service.dart';
 import 'features/home/home_page.dart';
 import 'l10n/app_localizations.dart';
 
@@ -21,6 +22,9 @@ void main() async {
 
   // Haptic feedback ayarlarını yükle
   await HapticHelper.init();
+
+  // Skor servisini başlat
+  await ScoreService.instance.init();
 
   runApp(
     const ProviderScope(
