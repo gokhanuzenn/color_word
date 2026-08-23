@@ -157,7 +157,7 @@ class _ColoringPageState extends State<ColoringPage>
         _eraseAtPoint(localPoint);
       } else {
         _currentStroke = DrawStroke(
-          color: _selectedColor,
+          color: _selectedColor.withOpacity(_opacity),
           size: _selectedTool == 'fırça' ? _brushSize * 1.5 : _brushSize,
           points: [localPoint],
         );
@@ -349,14 +349,16 @@ class _ColoringPageState extends State<ColoringPage>
           .map((s) => '${s.color.value},${s.size},${s.points.map((p) => '${p.dx},${p.dy}').join(';')}')
           .join('\n');
       await file.writeAsString(data);
+      print('✅ Kaydedildi: ${file.path}');
       await AchievementService.instance.saveDrawing(file.path);
       HapticHelper.mediumImpact();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('💾 Kaydedildi!'), backgroundColor: Colors.green, duration: Duration(milliseconds: 800)),
+          SnackBar(content: Text('💾 Kaydedildi! ${file.path}'), backgroundColor: Colors.green, duration: const Duration(seconds: 2)),
         );
       }
     } catch (e) {
+      print('❌ Kaydetme hatası: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
@@ -730,26 +732,41 @@ class _ColoringPageState extends State<ColoringPage>
     );
   }
 
+  double _opacity = 1.0;
+
   Widget _buildSizeSlider() {
     final maxSize = _isErasing ? 30.0 : (_selectedTool == 'fırça' ? 20.0 : 12.0);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
         children: [
-          Container(width: 12, height: 12, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle)),
+          // Boyut slider
+          Icon(Icons.circle, size: 8, color: Colors.black),
           Expanded(
+            flex: 3,
             child: SliderTheme(
-              data: SliderThemeData(activeTrackColor: Colors.black, inactiveTrackColor: Colors.grey[300], thumbColor: Colors.black, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8)),
+              data: SliderThemeData(activeTrackColor: Colors.black, inactiveTrackColor: Colors.grey[300], thumbColor: Colors.black, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6)),
               child: Slider(value: _brushSize, min: 1.0, max: maxSize, onChanged: (v) => setState(() => _brushSize = v)),
             ),
           ),
-          Container(width: 20, height: 20, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle)),
-          const SizedBox(width: 8),
+          Icon(Icons.circle, size: 16, color: Colors.black),
+          const SizedBox(width: 4),
+          // Önizleme
           Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey[300]!)),
+            width: 28, height: 28,
+            decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey[300]!)),
             child: Center(
-              child: Container(width: _brushSize * 2, height: _brushSize * 2, decoration: BoxDecoration(color: _isErasing ? Colors.red : _selectedColor, shape: BoxShape.circle)),
+              child: Container(width: _brushSize * 2, height: _brushSize * 2, decoration: BoxDecoration(color: (_isErasing ? Colors.red : _selectedColor).withOpacity(_opacity), shape: BoxShape.circle)),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Şeffaflık slider
+          Icon(Icons.opacity, size: 14, color: Colors.grey[600]),
+          Expanded(
+            flex: 2,
+            child: SliderTheme(
+              data: SliderThemeData(activeTrackColor: Colors.blue, inactiveTrackColor: Colors.grey[300], thumbColor: Colors.blue, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6)),
+              child: Slider(value: _opacity, min: 0.1, max: 1.0, onChanged: (v) => setState(() => _opacity = v)),
             ),
           ),
         ],
@@ -759,32 +776,32 @@ class _ColoringPageState extends State<ColoringPage>
 
   Widget _buildColorPalette() {
     final colors = [
-      // Temel renkler
+      // Temel
       Colors.black, Colors.white,
       // Griler
-      Colors.grey[900]!, Colors.grey[800]!, Colors.grey[700]!, Colors.grey[600]!, Colors.grey[500]!, Colors.grey[400]!, Colors.grey[300]!, Colors.grey[200]!, Colors.grey[100]!,
-      // Kırmızılar
-      const Color(0xFFB71C1C), const Color(0xFFD32F2F), const Color(0xFFF44336), const Color(0xFFE57373), const Color(0xFFFFCDD2),
-      // Turuncular
-      const Color(0xFFE65100), const Color(0xFFF57C00), const Color(0xFFFF9800), const Color(0xFFFFB74D),
-      // Sarılar
-      const Color(0xFFF9A825), const Color(0xFFFFEB3B), const Color(0xFFFFF176),
-      // Yeşiller
-      const Color(0xFF1B5E20), const Color(0xFF388E3C), const Color(0xFF4CAF50), const Color(0xFF81C784),
-      // Maviler
-      const Color(0xFF0D47A1), const Color(0xFF1976D2), const Color(0xFF2196F3), const Color(0xFF64B5F6),
-      // Morlar
-      const Color(0xFF4A148C), const Color(0xFF7B1FA2), const Color(0xFF9C27B0), const Color(0xFFCE93D8),
-      // Pembe
-      const Color(0xFF880E4F), const Color(0xFFC2185B), const Color(0xFFE91E63), const Color(0xFFF48FB1),
+      Colors.grey[800]!, Colors.grey[600]!, Colors.grey[400]!, Colors.grey[200]!,
+      // Kırmızı - CANLI
+      const Color(0xFFCC0000), const Color(0xFFFF0000), const Color(0xFFFF3333), const Color(0xFFFF6666),
+      // Turuncu - CANLI
+      const Color(0xFFCC5500), const Color(0xFFFF6600), const Color(0xFFFF9933), const Color(0xFFFFCC66),
+      // Sarı - CANLI
+      const Color(0xFFCCAA00), const Color(0xFFFFDD00), const Color(0xFFFFEE33), const Color(0xFFFFFF66),
+      // Yeşil - CANLI
+      const Color(0xFF006600), const Color(0xFF009900), const Color(0xFF00CC00), const Color(0xFF33FF33),
+      // Mavi - CANLI
+      const Color(0xFF0000CC), const Color(0xFF0066FF), const Color(0xFF0099FF), const Color(0xFF33CCFF),
+      // Mor - CANLI
+      const Color(0xFF660099), const Color(0xFF9900CC), const Color(0xFFCC33FF), const Color(0xFFDD66FF),
+      // Pembe - CANLI
+      const Color(0xFFCC0066), const Color(0xFFFF0066), const Color(0xFFFF3399), const Color(0xFFFF66B2),
       // Kahverengi
-      const Color(0xFF3E2723), const Color(0xFF5D4037), const Color(0xFF795548), const Color(0xFFA1887F),
-      // Pastel tonlar
-      const Color(0xFFB3E5FC), const Color(0xFFB2DFDB), const Color(0xFFC8E6C9), const Color(0xFFFFF9C4),
+      const Color(0xFF331900), const Color(0xFF663300), const Color(0xFF996633), const Color(0xFFCC9966),
+      // Ekstra
+      const Color(0xFF006666), const Color(0xFF009999), const Color(0xFF00CCCC), const Color(0xFF66FFFF),
     ];
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: colors.length,
@@ -805,8 +822,8 @@ class _ColoringPageState extends State<ColoringPage>
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              width: 40, height: 40,
-              margin: const EdgeInsets.symmetric(horizontal: 2),
+              width: 28, height: 28,
+              margin: const EdgeInsets.symmetric(horizontal: 1),
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,

@@ -6,10 +6,22 @@ import 'connect_dots_page.dart';
 import 'shape_matching_page.dart';
 import 'color_matching_page.dart';
 import 'memory_game_page.dart';
+import '../../data/services/ad_service.dart';
 
 /// Eğitim Oyunları Sayfası
 class EducationalPage extends StatelessWidget {
   const EducationalPage({super.key});
+
+  void _navigateWithAd(BuildContext context, Widget page) {
+    AdService.instance.showInterstitialAd(
+      onAdClosed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => page),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,12 +42,7 @@ class EducationalPage extends StatelessWidget {
                       title: 'Harf Çizme',
                       subtitle: 'A\'dan Z\'ye harfleri çizerek öğren',
                       color: const Color(0xFF4CAF50),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LetterTracingPage(),
-                        ),
-                      ),
+                      onTap: () => _navigateWithAd(context, const LetterTracingPage()),
                     ),
                     const SizedBox(height: 16),
                     _buildGameCard(
@@ -44,12 +51,7 @@ class EducationalPage extends StatelessWidget {
                       title: 'Sayı Çizme',
                       subtitle: '0\'dan 9\'a kadar sayıları çiz',
                       color: const Color(0xFF2196F3),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const NumberTracingPage(),
-                        ),
-                      ),
+                      onTap: () => _navigateWithAd(context, const NumberTracingPage()),
                     ),
                     const SizedBox(height: 16),
                     _buildGameCard(
@@ -58,12 +60,7 @@ class EducationalPage extends StatelessWidget {
                       title: 'Noktaları Birleştir',
                       subtitle: 'Noktaları bağlayarak resim oluştur',
                       color: const Color(0xFFFF9800),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ConnectDotsPage(),
-                        ),
-                      ),
+                      onTap: () => _navigateWithAd(context, const ConnectDotsPage()),
                     ),
                     const SizedBox(height: 16),
                     _buildGameCard(
@@ -72,12 +69,7 @@ class EducationalPage extends StatelessWidget {
                       title: 'Şekil Eşleştirme',
                       subtitle: 'Şekilleri doğru yerlere yerleştir',
                       color: const Color(0xFF9C27B0),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ShapeMatchingPage(),
-                        ),
-                      ),
+                      onTap: () => _navigateWithAd(context, const ShapeMatchingPage()),
                     ),
                     const SizedBox(height: 16),
                     _buildGameCard(
@@ -86,12 +78,7 @@ class EducationalPage extends StatelessWidget {
                       title: 'Renk Eşleştirme',
                       subtitle: 'Renkleri isimleriyle eşleştir',
                       color: const Color(0xFFE91E63),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ColorMatchingPage(),
-                        ),
-                      ),
+                      onTap: () => _navigateWithAd(context, const ColorMatchingPage()),
                     ),
                     const SizedBox(height: 16),
                     _buildGameCard(
@@ -100,12 +87,7 @@ class EducationalPage extends StatelessWidget {
                       title: 'Hafıza Oyunu',
                       subtitle: 'Kartları eşleştirerek hafızanı geliştir',
                       color: const Color(0xFF00BCD4),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MemoryGamePage(),
-                        ),
-                      ),
+                      onTap: () => _navigateWithAd(context, const MemoryGamePage()),
                     ),
                   ],
                 ),
