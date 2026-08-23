@@ -388,12 +388,39 @@ class LetterTracingPainter extends CustomPainter {
     required this.letter,
   });
 
+  // Noktaları canvas ortasına taşı
+  List<Offset> _centerPoints(List<Offset> points, Size canvasSize) {
+    if (points.isEmpty) return points;
+    
+    // Noktaların sınırlarını bul
+    double minX = points.first.dx, maxX = points.first.dx;
+    double minY = points.first.dy, maxY = points.first.dy;
+    for (final p in points) {
+      if (p.dx < minX) minX = p.dx;
+      if (p.dx > maxX) maxX = p.dx;
+      if (p.dy < minY) minY = p.dy;
+      if (p.dy > maxY) maxY = p.dy;
+    }
+    
+    // Noktaların merkezi
+    final pointsCenter = Offset((minX + maxX) / 2, (minY + maxY) / 2);
+    // Canvas'ın merkezi
+    final canvasCenter = Offset(canvasSize.width / 2, canvasSize.height / 2);
+    // Offset hesapla
+    final offset = canvasCenter - pointsCenter;
+    
+    return points.map((p) => p + offset).toList();
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = Colors.white);
 
+    // Noktaları ortala
+    final centeredGuide = _centerPoints(guidePoints, size);
+    
     // Kılavuz çizgi
-    if (guidePoints.length >= 2) {
+    if (centeredGuide.length >= 2) {
       final guidePaint = Paint()
         ..color = Colors.grey[300]!
         ..strokeWidth = 6
@@ -401,22 +428,22 @@ class LetterTracingPainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke;
 
-      final guidePath = Path()..moveTo(guidePoints.first.dx, guidePoints.first.dy);
-      for (int i = 1; i < guidePoints.length; i++) {
-        guidePath.lineTo(guidePoints[i].dx, guidePoints[i].dy);
+      final guidePath = Path()..moveTo(centeredGuide.first.dx, centeredGuide.first.dy);
+      for (int i = 1; i < centeredGuide.length; i++) {
+        guidePath.lineTo(centeredGuide[i].dx, centeredGuide[i].dy);
       }
       canvas.drawPath(guidePath, guidePaint);
 
-      // Kılavuz noktalar (sadece connector)
-      for (int i = 0; i < guidePoints.length; i++) {
+      // Kılavuz noktalar
+      for (int i = 0; i < centeredGuide.length; i++) {
         final isFirst = i == 0;
         canvas.drawCircle(
-          guidePoints[i],
+          centeredGuide[i],
           isFirst ? 10 : 7,
           Paint()..color = isFirst ? Colors.red[400]! : Colors.blue[200]!,
         );
         if (isFirst) {
-          canvas.drawCircle(guidePoints[i], 5, Paint()..color = Colors.white);
+          canvas.drawCircle(centeredGuide[i], 5, Paint()..color = Colors.white);
         }
       }
     }
