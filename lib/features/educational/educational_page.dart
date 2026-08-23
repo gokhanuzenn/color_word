@@ -4,6 +4,8 @@ import 'letter_tracing_page.dart';
 import 'number_tracing_page.dart';
 import 'connect_dots_page.dart';
 import 'shape_matching_page.dart';
+import 'color_matching_page.dart';
+import 'memory_game_page.dart';
 
 /// Eğitim Oyunları Sayfası
 class EducationalPage extends StatelessWidget {
@@ -66,7 +68,7 @@ class EducationalPage extends StatelessWidget {
                     const SizedBox(height: 16),
                     _buildGameCard(
                       context: context,
-                      icon: '形状',
+                      icon: '🎨',
                       title: 'Şekil Eşleştirme',
                       subtitle: 'Şekilleri doğru yerlere yerleştir',
                       color: const Color(0xFF9C27B0),
@@ -74,6 +76,34 @@ class EducationalPage extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const ShapeMatchingPage(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildGameCard(
+                      context: context,
+                      icon: '🌈',
+                      title: 'Renk Eşleştirme',
+                      subtitle: 'Renkleri isimleriyle eşleştir',
+                      color: const Color(0xFFE91E63),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ColorMatchingPage(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildGameCard(
+                      context: context,
+                      icon: '🧠',
+                      title: 'Hafıza Oyunu',
+                      subtitle: 'Kartları eşleştirerek hafızanı geliştir',
+                      color: const Color(0xFF00BCD4),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MemoryGamePage(),
                         ),
                       ),
                     ),
