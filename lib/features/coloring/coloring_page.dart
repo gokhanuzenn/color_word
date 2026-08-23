@@ -57,6 +57,9 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
 
   bool _hasUnsavedChanges = false;
   bool _showSparkle = false;
+
+  // Silgi imleci konumu
+  Offset? _eraserPosition;
   late AnimationController _sparkleController;
 
   final List<Map<String, dynamic>> _pencilGrades = [
@@ -113,21 +116,30 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
     setState(() {
       _isDrawing = true;
       _redoStack.clear();
-      _currentStroke = DrawStroke(
-        color: _isErasing ? Colors.white : _selectedColor,
-        size: _isErasing ? _brushSize * 2 : _brushSize,
-        points: [point],
-      );
+      if (_isErasing) {
+        // Silgi modunda beyaz çizgi oluşturma, sadece silme yap
+        _eraserPosition = point;
+        _eraseAtPoint(point);
+      } else {
+        _currentStroke = DrawStroke(
+          color: _selectedColor,
+          size: _brushSize,
+          points: [point],
+        );
+      }
     });
-  }
-
-  void _continueDrawing(Offset point) {
-    if (_isDrawing && _currentStroke != null) {
+  }  void _continueDrawing(Offset point) {
+    if (_isDrawing) {
       setState(() {
-        _currentStroke!.points.add(point);
         _hasUnsavedChanges = true;
+        if (_isErasing) {
+          // Silgi modunda sadece çizimleri sil, beyaz çizgi oluşturma
+          _eraserPosition = point;
+          _eraseAtPoint(point);
+        } else if (_currentStroke != null) {
+          _currentStroke!.points.add(point);
+        }
       });
-      if (_isErasing) _eraseAtPoint(point);
     }
   }
 
@@ -140,6 +152,7 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
     setState(() {
       _currentStroke = null;
       _isDrawing = false;
+      _eraserPosition = null;
     });
   }
 
@@ -405,6 +418,24 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
                   ),
                 );
               }),
+
+              // Silgi imleci
+              if (_isErasing && _eraserPosition != null)
+                Positioned(
+                  left: _eraserPosition!.dx - _brushSize * 2,
+                  top: _eraserPosition!.dy - _brushSize * 2,
+                  child: IgnorePointer(
+                    child: Container(
+                      width: _brushSize * 4,
+                      height: _brushSize * 4,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.red, width: 2),
+                        color: Colors.red.withOpacity(0.2),
+                      ),
+                    ),
+                  ),
+                ),
 
               // Parıltı efekti
               if (_showSparkle) ..._buildSparkles(),

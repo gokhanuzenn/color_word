@@ -90,6 +90,7 @@ flutter:
     - assets/images/yiyecekler/
     - assets/audio/
     - assets/fonts/
+    - lib/l10n/
 
   # fonts:
   #   - family: CustomFont

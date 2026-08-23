@@ -6,7 +6,6 @@ import '../../core/constants/app_constants.dart';
 import '../../core/widgets/neubrutal_button.dart';
 import '../../core/widgets/app_logo.dart';
 import '../../core/widgets/neubrutal_card.dart';
-import '../../data/providers/app_provider.dart';
 import '../categories/categories_page.dart';
 import '../settings/settings_page.dart';
 import '../settings/admin_page.dart';
@@ -46,9 +45,6 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = ref.watch(userProgressProvider);
-    final stats = ref.watch(progressStatsProvider);
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -95,45 +91,6 @@ class _HomePageState extends ConsumerState<HomePage> {
               ).animate().fadeIn(delay: 200.ms, duration: 600.ms),
 
               const SizedBox(height: AppConstants.paddingExtraLarge),
-
-              // İstatistikler
-              if (progress != null)
-                NeubrutalCard(
-                  child: Column(
-                    children: [
-                      const Text(
-                        '📊 İlerlemem',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _StatItem(
-                            icon: '🔤',
-                            label: 'Harf',
-                            value: '${stats['letters']}',
-                          ),
-                          _StatItem(
-                            icon: '📝',
-                            label: 'Kelime',
-                            value: '${stats['words']}',
-                          ),
-                          _StatItem(
-                            icon: '🎨',
-                            label: 'Boyama',
-                            value: '${stats['colorings']}',
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ).animate().fadeIn(delay: 400.ms, duration: 600.ms),
-
               const Spacer(),
 
               // Ana butonlar
