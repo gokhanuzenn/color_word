@@ -700,54 +700,43 @@ class _ColoringPageState extends State<ColoringPage>
       );
     }
 
-    // PNG/JPG dosyası - önce SVG dene
+    // PNG/JPG dosyası - errorBuilder ile SVG dene
     final name = path.split(Platform.pathSeparator).last;
     final category = widget.categoryName.toLowerCase()
         .replaceAll(' ', '_')
         .replaceAll('ğ', 'g').replaceAll('ü', 'u')
         .replaceAll('ş', 's').replaceAll('ı', 'i')
         .replaceAll('ö', 'o').replaceAll('ç', 'c');
-    final svgPath = 'assets/images/$category/${name.replaceAll('.png', '.svg')}';
 
-    // SVG asset varsa onu kullan
-    return FutureBuilder<bool>(
-      future: _assetExists(svgPath),
-      builder: (context, snapshot) {
-        if (snapshot.data == true) {
-          return ColoredBox(
-            color: Colors.white,
-            child: SvgPicture.asset(svgPath, fit: BoxFit.cover, width: double.infinity, height: double.infinity),
-          );
-        }
-        // PNG göster
-        return Image.file(
-          file,
-          fit: BoxFit.contain,
-          width: double.infinity,
-          height: double.infinity,
-          errorBuilder: (context, error, stackTrace) {
-            return Image.asset(
-              'assets/images/$category/$name',
-              fit: BoxFit.contain,
-              width: double.infinity,
-              height: double.infinity,
-              errorBuilder: (context, error, stackTrace) {
-                return const Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey));
-              },
-            );
-          },
+    return Image.asset(
+      'assets/images/$category/$name',
+      fit: BoxFit.contain,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (context, error, stackTrace) {
+        // PNG yüklenemedi, SVG dene
+        final svgPath = 'assets/images/$category/${name.replaceAll('.png', '.svg')}';
+        return ColoredBox(
+          color: Colors.white,
+          child: SvgPicture.asset(
+            svgPath,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            placeholderBuilder: (context) => const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+                  SizedBox(height: 8),
+                  Text('Resim yüklenemedi', style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );
-  }
-
-  Future<bool> _assetExists(String assetPath) async {
-    try {
-      await DefaultAssetBundle.of(context).load(assetPath);
-      return true;
-    } catch (_) {
-      return false;
-    }
   }
 
   List<Widget> _buildSparkles() {
