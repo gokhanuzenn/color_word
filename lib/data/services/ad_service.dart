@@ -37,20 +37,26 @@ class AdService {
 
   /// AdMob'u başlat
   Future<void> initialize() async {
-    // Test cihazı ayarla (geliştirme için)
-    await MobileAds.instance.initialize();
-    
-    // Debug modunda test reklamları için
-    if (kDebugMode) {
-      MobileAds.instance.updateRequestConfiguration(
-        RequestConfiguration(
-          testDeviceIds: ['YOUR_TEST_DEVICE_ID'],
-        ),
-      );
+    try {
+      // Test cihazı ayarla (geliştirme için)
+      final initStatus = await MobileAds.instance.initialize();
+      print('✅ AdMob başlatıldı: $initStatus');
+      
+      // Debug modunda test reklamları için
+      if (kDebugMode) {
+        await MobileAds.instance.updateRequestConfiguration(
+          RequestConfiguration(
+            testDeviceIds: ['EMULATOR'],
+          ),
+        );
+        print('✅ Test cihazı ayarlandı: EMULATOR');
+      }
+      
+      await _loadInterstitialAd();
+      _checkPremiumStatus();
+    } catch (e) {
+      print('❌ AdMob başlatma hatası: $e');
     }
-    
-    await _loadInterstitialAd();
-    _checkPremiumStatus();
   }
 
   /// Premium durumunu kontrol et
@@ -100,25 +106,34 @@ class AdService {
 
   // === INTERSTITIAL REKLAM ===
   Future<void> _loadInterstitialAd() async {
-    if (!shouldShowAds()) return;
+    if (!shouldShowAds()) {
+      print('⚠️ Premium kullanıcı, reklam yüklenmiyor');
+      return;
+    }
 
-    await InterstitialAd.load(
-      adUnitId: interstitialAdUnitId,
-      request: const AdRequest(),
-      adLoadCallback: InterstitialAdLoadCallback(
-        onAdLoaded: (ad) {
-          _interstitialAd = ad;
-          print('✅ Interstitial reklam yüklendi');
-          _onAdReady?.call();
-        },
-        onAdFailedToLoad: (error) {
-          print('❌ Interstitial reklam yüklenemedi: $error');
-          _interstitialAd = null;
-          // 30 saniye sonra tekrar dene
-          Future.delayed(const Duration(seconds: 30), () => _loadInterstitialAd());
-        },
-      ),
-    );
+    print('🔄 Interstitial reklam yükleniyor: $interstitialAdUnitId');
+    
+    try {
+      await InterstitialAd.load(
+        adUnitId: interstitialAdUnitId,
+        request: const AdRequest(),
+        adLoadCallback: InterstitialAdLoadCallback(
+          onAdLoaded: (ad) {
+            _interstitialAd = ad;
+            print('✅ Interstitial reklam yüklendi');
+            _onAdReady?.call();
+          },
+          onAdFailedToLoad: (error) {
+            print('❌ Interstitial reklam yüklenemedi: ${error.message}');
+            _interstitialAd = null;
+            // 30 saniye sonra tekrar dene
+            Future.delayed(const Duration(seconds: 30), () => _loadInterstitialAd());
+          },
+        ),
+      );
+    } catch (e) {
+      print('❌ Interstitial reklam hatası: $e');
+    }
   }
 
   /// İlk açılışta reklam göster

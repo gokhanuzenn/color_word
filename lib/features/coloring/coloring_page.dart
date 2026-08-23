@@ -759,11 +759,28 @@ class _ColoringPageState extends State<ColoringPage>
 
   Widget _buildColorPalette() {
     final colors = [
-      Colors.black, Colors.grey[800]!, Colors.grey[500]!, Colors.grey[300]!, Colors.white,
-      const Color(0xFFE91E63), const Color(0xFFF44336), const Color(0xFFFF5722), const Color(0xFFFF9800), const Color(0xFFFFC107),
-      const Color(0xFF4CAF50), const Color(0xFF8BC34A), const Color(0xFF009688), const Color(0xFF00BCD4), const Color(0xFF03A9F4),
-      const Color(0xFF2196F3), const Color(0xFF3F51B5), const Color(0xFF673AB7), const Color(0xFF9C27B0), const Color(0xFFE91E63),
-      const Color(0xFF795548), const Color(0xFF607D8B), const Color(0xFF8D6E63), const Color(0xFFD7CCC8), const Color(0xFFF8BBD0),
+      // Temel renkler
+      Colors.black, Colors.white,
+      // Griler
+      Colors.grey[900]!, Colors.grey[800]!, Colors.grey[700]!, Colors.grey[600]!, Colors.grey[500]!, Colors.grey[400]!, Colors.grey[300]!, Colors.grey[200]!, Colors.grey[100]!,
+      // Kırmızılar
+      const Color(0xFFB71C1C), const Color(0xFFD32F2F), const Color(0xFFF44336), const Color(0xFFE57373), const Color(0xFFFFCDD2),
+      // Turuncular
+      const Color(0xFFE65100), const Color(0xFFF57C00), const Color(0xFFFF9800), const Color(0xFFFFB74D),
+      // Sarılar
+      const Color(0xFFF9A825), const Color(0xFFFFEB3B), const Color(0xFFFFF176),
+      // Yeşiller
+      const Color(0xFF1B5E20), const Color(0xFF388E3C), const Color(0xFF4CAF50), const Color(0xFF81C784),
+      // Maviler
+      const Color(0xFF0D47A1), const Color(0xFF1976D2), const Color(0xFF2196F3), const Color(0xFF64B5F6),
+      // Morlar
+      const Color(0xFF4A148C), const Color(0xFF7B1FA2), const Color(0xFF9C27B0), const Color(0xFFCE93D8),
+      // Pembe
+      const Color(0xFF880E4F), const Color(0xFFC2185B), const Color(0xFFE91E63), const Color(0xFFF48FB1),
+      // Kahverengi
+      const Color(0xFF3E2723), const Color(0xFF5D4037), const Color(0xFF795548), const Color(0xFFA1887F),
+      // Pastel tonlar
+      const Color(0xFFB3E5FC), const Color(0xFFB2DFDB), const Color(0xFFC8E6C9), const Color(0xFFFFF9C4),
     ];
     return Container(
       height: 48,
