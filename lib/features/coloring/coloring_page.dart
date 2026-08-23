@@ -77,10 +77,9 @@ class _ColoringPageState extends State<ColoringPage>
   Color _selectedColor = Colors.black;
   double _brushSize = 6.0;
   bool _isErasing = false;
-  bool _isFilling = false;
-  bool _isTextMode = false;
   String _selectedTool = 'kalem';
   bool _showSubTools = false;
+  bool _isTextMode = false;
   bool _isDrawing = false;
   DrawStroke? _currentStroke;
   Offset? _eraserPosition;
@@ -153,18 +152,7 @@ class _ColoringPageState extends State<ColoringPage>
       _isDrawing = true;
       _redoStack.clear();
 
-      if (_isFilling) {
-        _strokes.add(DrawStroke(
-          color: _selectedColor,
-          size: _brushSize,
-          points: [localPoint],
-          isFill: true,
-        ));
-        _hasUnsavedChanges = true;
-        _isFilling = false;
-        _isDrawing = false;
-        HapticHelper.mediumImpact();
-      } else if (_isErasing) {
+      if (_isErasing) {
         _eraserPosition = localPoint;
         _eraseAtPoint(localPoint);
       } else {
@@ -423,7 +411,7 @@ class _ColoringPageState extends State<ColoringPage>
       _isScaling = false;
     } else if (details.pointerCount == 1 && !_isScaling) {
       final localPoint = _globalToLocal(details.focalPoint);
-      if (_stickerMode || _isTextMode) return;
+      // Sticker ve metin modunda da _startDrawing'ı çağır
       if (!_isDrawing) {
         _startDrawing(localPoint);
       } else {
@@ -651,17 +639,6 @@ class _ColoringPageState extends State<ColoringPage>
                   );
                 }),
 
-                // Kova göstergesi
-                if (_isFilling)
-                  Positioned(
-                    bottom: 8, left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(8)),
-                      child: const Text('🪣 Bölgeye dokunarak boyayın', style: TextStyle(color: Colors.white, fontSize: 11)),
-                    ),
-                  ),
-
                 // Parıltı efekti
                 if (_showSparkle) ..._buildSparkles(),
               ],
@@ -803,7 +780,6 @@ class _ColoringPageState extends State<ColoringPage>
               setState(() {
                 _selectedColor = color;
                 _isErasing = false;
-                _isFilling = false;
                 _isTextMode = false;
                 _stickerMode = false;
                 _selectedTool = 'kalem';
@@ -833,29 +809,25 @@ class _ColoringPageState extends State<ColoringPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildToolButton(icon: Icons.edit, label: 'Kalem', isActive: _selectedTool == 'kalem' && !_isErasing && !_isFilling && !_isTextMode && !_stickerMode, onTap: () {
+          _buildToolButton(icon: Icons.edit, label: 'Kalem', isActive: _selectedTool == 'kalem' && !_isErasing && !_isTextMode && !_stickerMode, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _selectedTool = 'kalem'; _isErasing = false; _isFilling = false; _isTextMode = false; _stickerMode = false; _showSubTools = !_showSubTools || _selectedTool != 'kalem'; });
+            setState(() { _selectedTool = 'kalem'; _isErasing = false; _isTextMode = false; _stickerMode = false; _showSubTools = !_showSubTools || _selectedTool != 'kalem'; });
           }),
           _buildToolButton(icon: Icons.brush, label: 'Fırça', isActive: _selectedTool == 'fırça' && !_isErasing, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _selectedTool = 'fırça'; _isErasing = false; _isFilling = false; _isTextMode = false; _stickerMode = false; _showSubTools = !_showSubTools || _selectedTool != 'fırça'; });
+            setState(() { _selectedTool = 'fırça'; _isErasing = false; _isTextMode = false; _stickerMode = false; _showSubTools = !_showSubTools || _selectedTool != 'fırça'; });
           }),
           _buildToolButton(icon: Icons.auto_fix_high, label: 'Silgi', isActive: _isErasing, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _isErasing = !_isErasing; _isFilling = false; _isTextMode = false; _stickerMode = false; _showSubTools = false; });
-          }),
-          _buildToolButton(icon: Icons.format_color_fill, label: 'Kova', isActive: _isFilling, onTap: () {
-            HapticHelper.lightImpact();
-            setState(() { _isFilling = !_isFilling; _isErasing = false; _isTextMode = false; _stickerMode = false; _showSubTools = false; });
+            setState(() { _isErasing = !_isErasing; _isTextMode = false; _stickerMode = false; _showSubTools = false; });
           }),
           _buildToolButton(icon: Icons.text_fields, label: 'Metin', isActive: _isTextMode, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _isTextMode = !_isTextMode; _isErasing = false; _isFilling = false; _stickerMode = false; _showSubTools = false; });
+            setState(() { _isTextMode = !_isTextMode; _isErasing = false; _stickerMode = false; _showSubTools = false; });
           }),
           _buildToolButton(icon: Icons.emoji_emotions, label: 'Sticker', isActive: _stickerMode, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _stickerMode = !_stickerMode; _isErasing = false; _isFilling = false; _isTextMode = false; _showSubTools = true; });
+            setState(() { _stickerMode = !_stickerMode; _isErasing = false; _isTextMode = false; _showSubTools = true; });
           }),
         ],
       ),
