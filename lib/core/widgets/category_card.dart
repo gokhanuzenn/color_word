@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
-import '../constants/app_constants.dart';
 
-/// Kategori seçim kartı
+/// Modern kategori seçim kartı
 class CategoryCard extends StatelessWidget {
   final String title;
   final String icon;
@@ -23,72 +21,76 @@ class CategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(AppConstants.paddingMedium),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
         decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
-          border: Border.all(
-            color: AppColors.border,
-            width: AppConstants.borderWidth,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              color,
+              color.withOpacity(0.7),
+            ],
           ),
-          boxShadow: const [
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
             BoxShadow(
-              color: AppColors.shadow,
-              offset: Offset(
-                AppConstants.shadowOffset,
-                AppConstants.shadowOffset,
-              ),
+              color: color.withOpacity(0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // İkon
-            Text(
-              icon,
-              style: const TextStyle(fontSize: 48),
-            ),
-            const SizedBox(height: 12),
-            // Başlık
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // İkon - Büyük ve merkezi
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        icon,
+                        style: const TextStyle(fontSize: 48),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Başlık
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          blurRadius: 4,
+                          color: Colors.black26,
+                          offset: Offset(1, 1),
+                        ),
+                      ],
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
-            // İlerleme çubuğu
-            Container(
-              height: 8,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(
-                  color: AppColors.border,
-                  width: 1,
-                ),
-              ),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: progress.clamp(0.0, 1.0),
-                child: Container(
-                  color: color,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '%${(progress * 100).toInt()}',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
