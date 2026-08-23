@@ -392,14 +392,6 @@ class LetterTracingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = Colors.white);
 
-    // Harf gölgesi
-    final textPainter = TextPainter(
-      text: TextSpan(text: letter, style: TextStyle(fontSize: 200, fontWeight: FontWeight.w900, color: Colors.blue[50]!)),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(canvas, Offset((size.width - textPainter.width) / 2, (size.height - textPainter.height) / 2));
-
     // Kılavuz çizgi
     if (guidePoints.length >= 2) {
       final guidePaint = Paint()
