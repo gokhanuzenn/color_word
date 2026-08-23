@@ -91,6 +91,7 @@ class _ColoringPageState extends State<ColoringPage>
 
   bool _hasUnsavedChanges = false;
   bool _showSparkle = false;
+  double _scale = 1.0;
   late AnimationController _sparkleController;
 
   @override
@@ -400,7 +401,7 @@ class _ColoringPageState extends State<ColoringPage>
 
   void _onScaleStart(ScaleStartDetails details) {
     _lastFocalPoint = details.focalPoint;
-    _lastScale = 1.0;
+    _lastScale = _scale;
     if (details.pointerCount == 2) {
       _isScaling = true;
     }
@@ -408,12 +409,16 @@ class _ColoringPageState extends State<ColoringPage>
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
+      // İki parmakla zoom
+      final newScale = (_lastScale * details.scale).clamp(0.5, 3.0);
+      setState(() {
+        _scale = newScale;
+      });
       _isScaling = true;
     } else if (details.pointerCount == 1 && _isScaling) {
       _isScaling = false;
     } else if (details.pointerCount == 1 && !_isScaling) {
       final localPoint = _globalToLocal(details.focalPoint);
-      // Sticker ve metin modunda da _startDrawing'ı çağır
       if (!_isDrawing) {
         _startDrawing(localPoint);
       } else {
@@ -534,16 +539,26 @@ class _ColoringPageState extends State<ColoringPage>
             onScaleEnd: _onScaleEnd,
             child: Stack(
               children: [
-                // Arka plan resmi
-                if (!widget.isBlankCanvas)
-                  Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
-                if (widget.isBlankCanvas)
-                  Positioned.fill(child: ColoredBox(color: Colors.white)),
+                // Zoom ile ölçeklendirme
+                Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()
+                    ..scale(_scale, _scale),
+                  child: Stack(
+                    children: [
+                      // Arka plan resmi
+                      if (!widget.isBlankCanvas)
+                        Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
+                      if (widget.isBlankCanvas)
+                        Positioned.fill(child: ColoredBox(color: Colors.white)),
 
-                // Çizim katmanı
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
+                      // Çizim katmanı
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
