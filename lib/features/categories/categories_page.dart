@@ -166,9 +166,9 @@ class CategoriesPage extends StatelessWidget {
       child: GridView.builder(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: columns,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.1,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.3,
         ),
         itemCount: _allCategories.length,
         itemBuilder: (context, index) {
@@ -209,14 +209,14 @@ class CategoriesPage extends StatelessWidget {
             onTap: () => _onCategoryTap(context, category),
             borderRadius: BorderRadius.circular(24),
             child: Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(6),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // İkon
                   Container(
-                    width: 60,
-                    height: 60,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
                       shape: BoxShape.circle,
@@ -224,16 +224,16 @@ class CategoriesPage extends StatelessWidget {
                     child: Center(
                       child: Text(
                         category.icon,
-                        style: const TextStyle(fontSize: 36),
+                        style: const TextStyle(fontSize: 28),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   // Başlık
                   Text(
                     category.name,
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
                       shadows: [
@@ -245,28 +245,9 @@ class CategoriesPage extends StatelessWidget {
                       ],
                     ),
                     textAlign: TextAlign.center,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  // Resim sayısı (varsa)
-                  if (category.imageCount > 0) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '🖼️ ${category.imageCount}',
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
