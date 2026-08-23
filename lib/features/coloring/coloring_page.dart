@@ -1,22 +1,57 @@
-import 'dart:io';
 import 'dart:math';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/constants/app_constants.dart';
 import '../../data/services/achievement_service.dart';
-import '../../data/services/ad_service.dart';
 
-/// Boyama sayfası
+// === MODELLER ===
+
+class DrawStroke {
+  final Color color;
+  final double size;
+  final List<Offset> points;
+  final bool isEraser;
+  final bool isFill;
+  DrawStroke({
+    required this.color,
+    required this.size,
+    required this.points,
+    this.isEraser = false,
+    this.isFill = false,
+  });
+}
+
+class StickerItem {
+  String emoji;
+  double x, y;
+  StickerItem({required this.emoji, required this.x, required this.y});
+}
+
+class TextItem {
+  String text;
+  double x, y;
+  Color color;
+  double fontSize;
+  TextItem({
+    required this.text,
+    required this.x,
+    required this.y,
+    this.color = Colors.black,
+    this.fontSize = 24,
+  });
+}
+
+// === BOYAMA SAYFASI ===
+
 class ColoringPage extends StatefulWidget {
   final String categoryName;
   final String categoryIcon;
   final Color categoryColor;
   final int initialImageIndex;
   final List<String> imagePaths;
-  final bool isCustomImage;
   final bool isBlankCanvas;
+  final bool isCustomImage;
 
   const ColoringPage({
     super.key,
@@ -25,31 +60,50 @@ class ColoringPage extends StatefulWidget {
     required this.categoryColor,
     required this.initialImageIndex,
     required this.imagePaths,
-    this.isCustomImage = false,
     this.isBlankCanvas = false,
+    this.isCustomImage = false,
   });
 
   @override
   State<ColoringPage> createState() => _ColoringPageState();
 }
 
-class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderStateMixin {
+class _ColoringPageState extends State<ColoringPage>
+    with SingleTickerProviderStateMixin {
+  // Sayfa
   late int _currentPage;
+
+  // Çizim
   List<DrawStroke> _strokes = [];
   List<DrawStroke> _redoStack = [];
   Color _selectedColor = Colors.black;
   double _brushSize = 6.0;
   bool _isErasing = false;
+  bool _isFilling = false;
+  bool _isTextMode = false;
   String _selectedTool = 'kalem';
   String _selectedSubTool = 'HB';
   bool _showSubTools = false;
   bool _isDrawing = false;
   DrawStroke? _currentStroke;
+  Offset? _eraserPosition;
 
   // Sticker
   bool _stickerMode = false;
   String _selectedSticker = '⭐';
   final List<StickerItem> _placedStickers = [];
+
+  // Metin
+  final List<TextItem> _placedTexts = [];
+  String _inputText = '';
+  double _textSize = 24;
+
+  // Zoom
+  double _scale = 1.0;
+  double _previousScale = 1.0;
+  Offset _offset = Offset.zero;
+  Offset _previousOffset = Offset.zero;
+  bool _isScaling = false;
 
   // Filtre
   int _selectedFilter = 0;
@@ -57,38 +111,20 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
 
   bool _hasUnsavedChanges = false;
   bool _showSparkle = false;
-
-  // Silgi imleci konumu
-  Offset? _eraserPosition;
   late AnimationController _sparkleController;
-
-  final List<Map<String, dynamic>> _pencilGrades = [
-    {'grade': 'HB', 'desc': 'Standart', 'size': 2.0},
-    {'grade': '2B', 'desc': 'Biraz kalın', 'size': 3.0},
-    {'grade': '3B', 'desc': 'Orta', 'size': 4.0},
-    {'grade': '4B', 'desc': 'Kalın', 'size': 5.0},
-    {'grade': '6B', 'desc': 'Çok kalın', 'size': 7.0},
-    {'grade': '8B', 'desc': 'En kalın', 'size': 9.0},
-  ];
-
-  final List<Map<String, dynamic>> _brushStyles = [
-    {'style': 'Sulu', 'desc': 'Sulu boya', 'size': 12.0},
-    {'style': 'Keçeli', 'desc': 'Keçeli', 'size': 5.0},
-    {'style': 'Klasik', 'desc': 'Standart', 'size': 8.0},
-    {'style': 'Kuru', 'desc': 'Kuru boya', 'size': 7.0},
-  ];
-
-  final List<String> _stickers = [
-    '⭐', '🌟', '💫', '✨', '🌈', '🦄', '🐱', '🐶', '🐰', '🐻',
-    '❤️', '💖', '💝', '🎉', '🎈', '🦋', '🌸', '🌺', '🌻', '🍀',
-    '🍎', '🍕', '🍦', '🎂', '🎀', '👑', '💎', '🎵', '🎨', '🦋',
-  ];
 
   @override
   void initState() {
     super.initState();
     _currentPage = widget.initialImageIndex;
-    _sparkleController = AnimationController(duration: const Duration(seconds: 2), vsync: this);
+    _sparkleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          setState(() => _showSparkle = false);
+        }
+      });
     _startAutoSave();
   }
 
@@ -101,43 +137,78 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
   // === ÇİZİM ===
 
   void _startDrawing(Offset point) {
+    if (_isScaling) return;
     if (_stickerMode) {
-      // Sticker modundaysa sticker koy
       setState(() {
         _placedStickers.add(StickerItem(
           emoji: _selectedSticker,
-          x: point.dx,
-          y: point.dy,
+          x: (point.dx - _offset.dx) / _scale,
+          y: (point.dy - _offset.dy) / _scale,
         ));
         _hasUnsavedChanges = true;
+        _stickerMode = false;
       });
       return;
     }
+
+    // Metin modunda
+    if (_isTextMode) {
+      _showTextInputDialog(point);
+      return;
+    }
+
     setState(() {
       _isDrawing = true;
       _redoStack.clear();
-      if (_isErasing) {
-        // Silgi modunda beyaz çizgi oluşturma, sadece silme yap
-        _eraserPosition = point;
-        _eraseAtPoint(point);
+
+      if (_isFilling) {
+        // Kova aracı - alan doldurma
+        final adjustedPoint = Offset(
+          (point.dx - _offset.dx) / _scale,
+          (point.dy - _offset.dy) / _scale,
+        );
+        _strokes.add(DrawStroke(
+          color: _selectedColor,
+          size: _brushSize,
+          points: [adjustedPoint],
+          isFill: true,
+        ));
+        _isFilling = false;
+        _isDrawing = false;
+      } else if (_isErasing) {
+        final adjustedPoint = Offset(
+          (point.dx - _offset.dx) / _scale,
+          (point.dy - _offset.dy) / _scale,
+        );
+        _eraserPosition = adjustedPoint;
+        _eraseAtPoint(adjustedPoint);
       } else {
+        final adjustedPoint = Offset(
+          (point.dx - _offset.dx) / _scale,
+          (point.dy - _offset.dy) / _scale,
+        );
         _currentStroke = DrawStroke(
           color: _selectedColor,
           size: _brushSize,
-          points: [point],
+          points: [adjustedPoint],
         );
       }
     });
-  }  void _continueDrawing(Offset point) {
-    if (_isDrawing) {
+  }
+
+  void _continueDrawing(Offset point) {
+    if (_isDrawing && !_isScaling) {
       setState(() {
         _hasUnsavedChanges = true;
+        final adjustedPoint = Offset(
+          (point.dx - _offset.dx) / _scale,
+          (point.dy - _offset.dy) / _scale,
+        );
         if (_isErasing) {
-          // Silgi modunda sadece çizimleri sil, beyaz çizgi oluşturma
-          _eraserPosition = point;
-          _eraseAtPoint(point);
+          _eraserPosition = adjustedPoint;
+          _eraseAtPoint(adjustedPoint);
         } else if (_currentStroke != null) {
-          _currentStroke!.points.add(point);
+          _currentStroke!.points.add(adjustedPoint);
         }
       });
     }
@@ -157,10 +228,13 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
   }
 
   void _eraseAtPoint(Offset eraserCenter) {
-    final eraserRadius = _brushSize * 2;
+    final eraserRadius = _brushSize * 3;
     final newStrokes = <DrawStroke>[];
     for (final stroke in _strokes) {
-      if (stroke.isEraser) continue;
+      if (stroke.isEraser || stroke.isFill) {
+        newStrokes.add(stroke);
+        continue;
+      }
       final segments = <DrawStroke>[];
       List<Offset> currentSegment = [];
       for (final point in stroke.points) {
@@ -168,13 +242,21 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
           currentSegment.add(point);
         } else {
           if (currentSegment.length >= 2) {
-            segments.add(DrawStroke(color: stroke.color, size: stroke.size, points: List.from(currentSegment)));
+            segments.add(DrawStroke(
+              color: stroke.color,
+              size: stroke.size,
+              points: List.from(currentSegment),
+            ));
           }
           currentSegment = [];
         }
       }
       if (currentSegment.length >= 2) {
-        segments.add(DrawStroke(color: stroke.color, size: stroke.size, points: List.from(currentSegment)));
+        segments.add(DrawStroke(
+          color: stroke.color,
+          size: stroke.size,
+          points: List.from(currentSegment),
+        ));
       }
       newStrokes.addAll(segments);
     }
@@ -186,7 +268,13 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
   void _undo() {
     if (_placedStickers.isNotEmpty) {
       setState(() {
-        _undoStickers.add(_placedStickers.removeLast());
+        _placedStickers.removeLast();
+      });
+      return;
+    }
+    if (_placedTexts.isNotEmpty) {
+      setState(() {
+        _placedTexts.removeLast();
       });
       return;
     }
@@ -194,8 +282,6 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
       setState(() => _redoStack.add(_strokes.removeLast()));
     }
   }
-
-  final List<StickerItem> _undoStickers = [];
 
   void _redo() {
     if (_redoStack.isNotEmpty) {
@@ -214,7 +300,9 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
         _strokes.clear();
         _redoStack.clear();
         _placedStickers.clear();
-        _undoStickers.clear();
+        _placedTexts.clear();
+        _scale = 1.0;
+        _offset = Offset.zero;
       });
     }
   }
@@ -235,9 +323,51 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
         ),
       );
     }
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _showSparkle = false);
-    });
+  }
+
+  // === METİN EKLEME ===
+
+  void _showTextInputDialog(Offset position) {
+    final textController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Metin Ekle'),
+        content: TextField(
+          controller: textController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Yazınızı girin...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (textController.text.isNotEmpty) {
+                setState(() {
+                  _placedTexts.add(TextItem(
+                    text: textController.text,
+                    x: (position.dx - _offset.dx) / _scale,
+                    y: (position.dy - _offset.dy) / _scale,
+                    color: _selectedColor,
+                    fontSize: _textSize,
+                  ));
+                  _isTextMode = false;
+                  _selectedTool = 'kalem';
+                });
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Ekle'),
+          ),
+        ],
+      ),
+    );
   }
 
   // === KAYDETME ===
@@ -249,18 +379,28 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
       if (!await savedDir.exists()) await savedDir.create(recursive: true);
       final fileName = 'drawing_${DateTime.now().millisecondsSinceEpoch}.txt';
       final file = File('${savedDir.path}/$fileName');
-      final data = _strokes.map((s) => '${s.color.value},${s.size},${s.points.map((p) => '${p.dx},${p.dy}').join(';')}').join('\n');
+      final data = _strokes
+          .map((s) =>
+              '${s.color.value},${s.size},${s.points.map((p) => '${p.dx},${p.dy}').join(';')}')
+          .join('\n');
       await file.writeAsString(data);
       await AchievementService.instance.saveDrawing(file.path);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('💾 Kaydedildi!'), backgroundColor: Colors.green, duration: Duration(milliseconds: 800)),
+          const SnackBar(
+            content: Text('💾 Kaydedildi!'),
+            backgroundColor: Colors.green,
+            duration: Duration(milliseconds: 800),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Hata: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -284,7 +424,10 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
       if (!await savedDir.exists()) await savedDir.create(recursive: true);
       final fileName = 'drawing_${DateTime.now().millisecondsSinceEpoch}.txt';
       final file = File('${savedDir.path}/$fileName');
-      final data = _strokes.map((s) => '${s.color.value},${s.size},${s.points.map((p) => '${p.dx},${p.dy}').join(';')}').join('\n');
+      final data = _strokes
+          .map((s) =>
+              '${s.color.value},${s.size},${s.points.map((p) => '${p.dx},${p.dy}').join(';')}')
+          .join('\n');
       await file.writeAsString(data);
       await AchievementService.instance.saveDrawing(file.path);
     } catch (e) {}
@@ -295,7 +438,7 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
         child: Column(
           children: [
@@ -311,26 +454,96 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
   Widget _buildTopBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: Colors.black, width: 2))),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
         children: [
-          IconButton(icon: const Icon(Icons.arrow_back, size: 20), onPressed: () => Navigator.pop(context), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+          IconButton(
+            icon: const Icon(Icons.arrow_back, size: 20),
+            onPressed: () => Navigator.pop(context),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${widget.categoryIcon} ${widget.categoryName}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-                Text('Sayfa ${_currentPage + 1} / ${widget.imagePaths.isEmpty ? 1 : widget.imagePaths.length}', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+                Text(
+                  '${widget.categoryIcon} ${widget.categoryName}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  'Sayfa ${_currentPage + 1} / ${widget.imagePaths.isEmpty ? 1 : widget.imagePaths.length}',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                ),
               ],
             ),
           ),
-          _buildSmallButton(icon: Icons.undo, onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty) ? _undo : null),
-          _buildSmallButton(icon: Icons.redo, onTap: _redoStack.isNotEmpty ? _redo : null),
-          _buildSmallButton(icon: Icons.save, onTap: _strokes.isNotEmpty ? _saveDrawing : null),
-          _buildSmallButton(icon: Icons.delete_outline, onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty) ? () => setState(() { _strokes.clear(); _redoStack.clear(); _placedStickers.clear(); _undoStickers.clear(); }) : null),
+          // Zoom göstergesi
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            margin: const EdgeInsets.only(right: 4),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${(_scale * 100).toInt()}%',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Colors.blue[700],
+              ),
+            ),
+          ),
+          _buildSmallButton(
+            icon: Icons.undo,
+            onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty) ? _undo : null,
+          ),
+          _buildSmallButton(
+            icon: Icons.redo,
+            onTap: _redoStack.isNotEmpty ? _redo : null,
+          ),
+          _buildSmallButton(
+            icon: Icons.save,
+            onTap: _strokes.isNotEmpty ? _saveDrawing : null,
+          ),
+          _buildSmallButton(
+            icon: Icons.delete_outline,
+            onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty)
+                ? () => setState(() {
+                      _strokes.clear();
+                      _redoStack.clear();
+                      _placedStickers.clear();
+                      _placedTexts.clear();
+                      _scale = 1.0;
+                      _offset = Offset.zero;
+                    })
+                : null,
+          ),
           if (!widget.isBlankCanvas && widget.imagePaths.length > 1) ...[
-            _buildSmallButton(icon: Icons.chevron_left, onTap: _currentPage > 0 ? () => _changePage(-1) : null),
-            _buildSmallButton(icon: Icons.chevron_right, onTap: _currentPage < widget.imagePaths.length - 1 ? () => _changePage(1) : null),
+            _buildSmallButton(
+              icon: Icons.chevron_left,
+              onTap: _currentPage > 0 ? () => _changePage(-1) : null,
+            ),
+            _buildSmallButton(
+              icon: Icons.chevron_right,
+              onTap: _currentPage < widget.imagePaths.length - 1
+                  ? () => _changePage(1)
+                  : null,
+            ),
           ],
         ],
       ),
@@ -342,107 +555,249 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 28, height: 28, margin: const EdgeInsets.symmetric(horizontal: 2),
-        decoration: BoxDecoration(color: isActive ? Colors.white : Colors.grey[100], border: Border.all(color: isActive ? Colors.black : Colors.grey[300]!, width: 1)),
-        child: Icon(icon, size: 14, color: isActive ? Colors.black : Colors.grey[400]),
+        width: 32,
+        height: 32,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.white : Colors.grey[100],
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isActive ? Colors.grey[400]! : Colors.grey[200]!,
+            width: 1,
+          ),
+        ),
+        child: Icon(icon, size: 16, color: isActive ? Colors.black : Colors.grey[400]),
       ),
     );
   }
 
-  // === ÇİZİM ALANI ===
+  // === ÇİZİM ALANI (ZOOM DESTEKLİ) ===
 
   Widget _buildDrawingArea() {
     return Padding(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(8),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: Colors.black, width: 3),
-          boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(3, 3))],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: ClipRect(
-          child: Stack(
-            children: [
-              // Arka plan resmi - KİLİTLİ
-              if (widget.isBlankCanvas)
-                const Positioned.fill(child: ColoredBox(color: Colors.white)),
-              if (!widget.isBlankCanvas)
-                Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: GestureDetector(
+            onScaleStart: (details) {
+              _previousScale = _scale;
+              _previousOffset = _offset;
+            },
+            onScaleUpdate: (details) {
+              if (details.pointerCount == 2) {
+                // İki parmakla yakınlaştırma
+                setState(() {
+                  _isScaling = true;
+                  _scale = (_previousScale * details.scale).clamp(0.5, 3.0);
+                  _offset = _previousOffset + (details.focalPoint - details.localFocalPoint);
+                });
+              } else if (details.pointerCount == 1 && !_isDrawing) {
+                // Tek parmakla çizim
+                _startDrawing(details.focalPoint);
+              }
+            },
+            onScaleEnd: (details) {
+              if (_isScaling) {
+                setState(() => _isScaling = false);
+              }
+              _endDrawing();
+            },
+            child: Stack(
+              children: [
+                // Arka plan
+                if (widget.isBlankCanvas)
+                  const Positioned.fill(child: ColoredBox(color: Colors.white)),
+                if (!widget.isBlankCanvas)
+                  Positioned.fill(
+                    child: Transform(
+                      alignment: Alignment.center,
+                      transform: Matrix4.identity()
+                        ..scale(_scale, _scale)
+                        ..translate(_offset.dx / _scale, _offset.dy / _scale),
+                      child: IgnorePointer(child: _buildImageWithFallback()),
+                    ),
+                  ),
 
-              // Çizim katmanı
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onPanStart: (details) => _startDrawing(details.localPosition),
-                  onPanUpdate: (details) => _continueDrawing(details.localPosition),
-                  onPanEnd: (details) => _endDrawing(),
+                // Çizim katmanı
+                Positioned.fill(
                   child: CustomPaint(
-                    size: Size.infinite,
-                    painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
-                  ),
-                ),
-              ),
-
-              // Sticker'lar - sürüklenebilir ve silinebilir
-              ..._placedStickers.asMap().entries.map((entry) {
-                final index = entry.key;
-                final sticker = entry.value;
-                return Positioned(
-                  left: sticker.x - 20,
-                  top: sticker.y - 20,
-                  child: GestureDetector(
-                    // Sürükleme
-                    onPanUpdate: (details) {
-                      setState(() {
-                        sticker.x += details.delta.dx;
-                        sticker.y += details.delta.dy;
-                      });
-                    },
-                    // Uzun basarak silme
-                    onLongPress: () {
-                      setState(() {
-                        _placedStickers.removeAt(index);
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Sticker silindi'), backgroundColor: Colors.orange, duration: Duration(milliseconds: 500)),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(sticker.emoji, style: const TextStyle(fontSize: 36)),
-                    ),
-                  ),
-                );
-              }),
-
-              // Silgi imleci
-              if (_isErasing && _eraserPosition != null)
-                Positioned(
-                  left: _eraserPosition!.dx - _brushSize * 2,
-                  top: _eraserPosition!.dy - _brushSize * 2,
-                  child: IgnorePointer(
-                    child: Container(
-                      width: _brushSize * 4,
-                      height: _brushSize * 4,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.red, width: 2),
-                        color: Colors.red.withOpacity(0.2),
-                      ),
+                    painter: StrokePainter(
+                      strokes: _strokes,
+                      currentStroke: _currentStroke,
+                      scale: _scale,
+                      offset: _offset,
                     ),
                   ),
                 ),
 
-              // Parıltı efekti
-              if (_showSparkle) ..._buildSparkles(),
-            ],
+                // Sticker'lar
+                ..._placedStickers.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final sticker = entry.value;
+                  return Positioned(
+                    left: sticker.x * _scale + _offset.dx - 20,
+                    top: sticker.y * _scale + _offset.dy - 20,
+                    child: GestureDetector(
+                      onPanUpdate: (details) {
+                        setState(() {
+                          sticker.x += details.delta.dx / _scale;
+                          sticker.y += details.delta.dy / _scale;
+                        });
+                      },
+                      onLongPress: () {
+                        setState(() => _placedStickers.removeAt(index));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Sticker silindi'),
+                            backgroundColor: Colors.orange,
+                            duration: Duration(milliseconds: 500),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.blue.withOpacity(0.3), width: 1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(sticker.emoji, style: const TextStyle(fontSize: 36)),
+                      ),
+                    ),
+                  );
+                }),
+
+                // Metinler
+                ..._placedTexts.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final text = entry.value;
+                  return Positioned(
+                    left: text.x * _scale + _offset.dx,
+                    top: text.y * _scale + _offset.dy,
+                    child: GestureDetector(
+                      onPanUpdate: (details) {
+                        setState(() {
+                          text.x += details.delta.dx / _scale;
+                          text.y += details.delta.dy / _scale;
+                        });
+                      },
+                      onLongPress: () {
+                        setState(() => _placedTexts.removeAt(index));
+                      },
+                      child: Text(
+                        text.text,
+                        style: TextStyle(
+                          fontSize: text.fontSize * _scale,
+                          color: text.color,
+                          fontWeight: FontWeight.bold,
+                          shadows: const [
+                            Shadow(
+                              blurRadius: 2,
+                              color: Colors.white,
+                              offset: Offset(1, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+
+                // Silgi imleci
+                if (_isErasing && _eraserPosition != null)
+                  Positioned(
+                    left: _eraserPosition!.dx * _scale + _offset.dx - _brushSize * 2,
+                    top: _eraserPosition!.dy * _scale + _offset.dy - _brushSize * 2,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: _brushSize * 4,
+                        height: _brushSize * 4,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.red, width: 2),
+                          color: Colors.red.withOpacity(0.2),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Kova aracı göstergesi
+                if (_isFilling)
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        '🪣 Bölgeye dokunarak boyayın',
+                        style: TextStyle(color: Colors.white, fontSize: 11),
+                      ),
+                    ),
+                  ),
+
+                // Parıltı efekti
+                if (_showSparkle) ..._buildSparkles(),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildImageWithFallback() {
+    if (widget.imagePaths.isEmpty) {
+      return const ColoredBox(color: Colors.white);
+    }
+    final path = widget.imagePaths[_currentPage.clamp(0, widget.imagePaths.length - 1)];
+    final file = File(path);
+    return Image.file(
+      file,
+      fit: BoxFit.contain,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (context, error, stackTrace) {
+        final name = path.split(Platform.pathSeparator).last;
+        final category = widget.categoryName.toLowerCase()
+            .replaceAll(' ', '_')
+            .replaceAll('ğ', 'g').replaceAll('ü', 'u')
+            .replaceAll('ş', 's').replaceAll('ı', 'i')
+            .replaceAll('ö', 'o').replaceAll('ç', 'c');
+        return Image.asset(
+          'assets/images/$category/$name',
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  Text(name, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -457,7 +812,10 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
           builder: (context, child) {
             return Opacity(
               opacity: (_sparkleController.value * 2 - index * 0.1).clamp(0.0, 1.0),
-              child: Text(['✨', '⭐', '🌟', '💫'][index % 4], style: TextStyle(fontSize: 20 + random.nextDouble() * 20)),
+              child: Text(
+                ['✨', '⭐', '🌟', '💫'][index % 4],
+                style: TextStyle(fontSize: 20 + random.nextDouble() * 20),
+              ),
             );
           },
         ),
@@ -465,24 +823,27 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
     });
   }
 
-  // === BOTTOM PANEL ===
+  // === ALT PANEL ===
 
   Widget _buildBottomPanel() {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.black, width: 2))),
-      child: _buildToolsPanel(),
-    );
-  }
-
-  Widget _buildToolsPanel() {
-    return SingleChildScrollView(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildSizeSlider(),
           _buildColorPalette(),
           _buildToolsRow(),
-          if (_stickerMode) _buildStickerBar(),
           if (_showSubTools) _buildSubToolsMenu(),
           const SizedBox(height: 4),
         ],
@@ -493,22 +854,54 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
   Widget _buildSizeSlider() {
     final maxSize = _isErasing ? 30.0 : (_selectedTool == 'fırça' ? 20.0 : 12.0);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
         children: [
-          Container(width: 10, height: 10, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle)),
+          Container(
+            width: 12,
+            height: 12,
+            decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
+          ),
           Expanded(
             child: SliderTheme(
-              data: SliderThemeData(activeTrackColor: Colors.black, inactiveTrackColor: Colors.grey[300], thumbColor: Colors.black, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6)),
-              child: Slider(value: _brushSize, min: 1.0, max: maxSize, onChanged: (v) => setState(() => _brushSize = v)),
+              data: SliderThemeData(
+                activeTrackColor: Colors.black,
+                inactiveTrackColor: Colors.grey[300],
+                thumbColor: Colors.black,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+              ),
+              child: Slider(
+                value: _brushSize,
+                min: 1.0,
+                max: maxSize,
+                onChanged: (v) => setState(() => _brushSize = v),
+              ),
             ),
           ),
-          Container(width: 16, height: 16, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle)),
-          const SizedBox(width: 4),
           Container(
-            width: 32, height: 32,
-            decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.black, width: 1)),
-            child: Center(child: Container(width: _brushSize * 2, height: _brushSize * 2, decoration: BoxDecoration(color: _isErasing ? Colors.red : Colors.black, shape: BoxShape.circle))),
+            width: 20,
+            height: 20,
+            decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: Center(
+              child: Container(
+                width: _brushSize * 2,
+                height: _brushSize * 2,
+                decoration: BoxDecoration(
+                  color: _isErasing ? Colors.red : Colors.black,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -528,14 +921,12 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
       Colors.green[800]!, Colors.green, Colors.green[200]!,
       Colors.lightGreen[600]!, Colors.lightGreen, Colors.lightGreen[200]!,
       Colors.yellow[800]!, Colors.yellow, Colors.yellow[200]!,
-      Colors.amber[700]!, Colors.amber, Colors.amber[200]!,
       Colors.orange[800]!, Colors.orange, Colors.orange[200]!,
-      Colors.deepOrange[700]!, Colors.deepOrange, Colors.deepOrange[200]!,
-      Colors.brown[800]!, Colors.brown, Colors.brown[200]!,
+      Colors.brown, Colors.brown[300]!,
     ];
     return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: colors.length,
@@ -543,11 +934,35 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
           final color = colors[index];
           final isSelected = _selectedColor == color && !_isErasing;
           return GestureDetector(
-            onTap: () => setState(() { _selectedColor = color; _isErasing = false; _selectedTool = 'kalem'; _stickerMode = false; }),
+            onTap: () => setState(() {
+              _selectedColor = color;
+              _isErasing = false;
+              _isFilling = false;
+              _isTextMode = false;
+              _stickerMode = false;
+              _selectedTool = 'kalem';
+            }),
             child: Container(
-              width: 26, height: 26, margin: const EdgeInsets.symmetric(horizontal: 1),
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: isSelected ? Colors.black : Colors.grey, width: isSelected ? 2 : 1)),
-              child: isSelected ? Icon(Icons.check, size: 10, color: color == Colors.white ? Colors.black : Colors.white) : null,
+              width: 36,
+              height: 36,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? Colors.black : Colors.grey[300]!,
+                  width: isSelected ? 3 : 1,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
             ),
           );
         },
@@ -557,40 +972,126 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
 
   Widget _buildToolsRow() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildToolButton(icon: Icons.edit, label: 'Kalem', subLabel: _selectedTool == 'kalem' ? _selectedSubTool : '', isActive: _selectedTool == 'kalem' && !_isErasing, onTap: () => setState(() { _selectedTool = 'kalem'; _isErasing = false; _stickerMode = false; _showSubTools = true; })),
-          const SizedBox(width: 4),
-          _buildToolButton(icon: Icons.brush, label: 'Fırça', subLabel: _selectedTool == 'fırça' ? _selectedSubTool : '', isActive: _selectedTool == 'fırça' && !_isErasing, onTap: () => setState(() { _selectedTool = 'fırça'; _isErasing = false; _stickerMode = false; _showSubTools = true; })),
-          const SizedBox(width: 4),
-          _buildToolButton(icon: Icons.auto_fix_high, label: 'Silgi', subLabel: '', isActive: _isErasing, onTap: () => setState(() { _isErasing = true; _stickerMode = false; _showSubTools = false; })),
-          const SizedBox(width: 4),
-          _buildToolButton(icon: Icons.emoji_emotions, label: 'Sticker', subLabel: '', isActive: _stickerMode, onTap: () => setState(() { _stickerMode = !_stickerMode; _isErasing = false; _showSubTools = false; })),
+          _buildToolButton(
+            icon: Icons.edit,
+            label: 'Kalem',
+            isActive: _selectedTool == 'kalem' && !_isErasing && !_isFilling && !_isTextMode,
+            onTap: () => setState(() {
+              _selectedTool = 'kalem';
+              _isErasing = false;
+              _isFilling = false;
+              _isTextMode = false;
+              _stickerMode = false;
+              _showSubTools = true;
+            }),
+          ),
+          _buildToolButton(
+            icon: Icons.brush,
+            label: 'Fırça',
+            isActive: _selectedTool == 'fırça' && !_isErasing,
+            onTap: () => setState(() {
+              _selectedTool = 'fırça';
+              _isErasing = false;
+              _isFilling = false;
+              _isTextMode = false;
+              _stickerMode = false;
+              _showSubTools = true;
+            }),
+          ),
+          _buildToolButton(
+            icon: Icons.auto_fix_high,
+            label: 'Silgi',
+            isActive: _isErasing,
+            onTap: () => setState(() {
+              _isErasing = !_isErasing;
+              _isFilling = false;
+              _isTextMode = false;
+              _stickerMode = false;
+              _showSubTools = false;
+            }),
+          ),
+          _buildToolButton(
+            icon: Icons.format_color_fill,
+            label: 'Kova',
+            isActive: _isFilling,
+            onTap: () => setState(() {
+              _isFilling = !_isFilling;
+              _isErasing = false;
+              _isTextMode = false;
+              _stickerMode = false;
+              _showSubTools = false;
+            }),
+          ),
+          _buildToolButton(
+            icon: Icons.text_fields,
+            label: 'Metin',
+            isActive: _isTextMode,
+            onTap: () => setState(() {
+              _isTextMode = !_isTextMode;
+              _isErasing = false;
+              _isFilling = false;
+              _stickerMode = false;
+              _showSubTools = false;
+            }),
+          ),
+          _buildToolButton(
+            icon: Icons.emoji_emotions,
+            label: 'Sticker',
+            isActive: _stickerMode,
+            onTap: () => setState(() {
+              _stickerMode = !_stickerMode;
+              _isErasing = false;
+              _isFilling = false;
+              _isTextMode = false;
+              _showSubTools = false;
+            }),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildToolButton({required IconData icon, required String label, required String subLabel, required bool isActive, required VoidCallback onTap}) {
+  Widget _buildToolButton({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: isActive ? Colors.black : Colors.white, border: Border.all(color: Colors.black, width: 1)),
-        child: Row(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.black : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.black, width: 2),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 4,
+                    offset: const Offset(2, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12, color: isActive ? Colors.white : Colors.black),
-            const SizedBox(width: 2),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: isActive ? Colors.white : Colors.black)),
-                if (subLabel.isNotEmpty) Text(subLabel, style: TextStyle(fontSize: 7, color: isActive ? Colors.grey[300] : Colors.grey[600])),
-              ],
+            Icon(icon, size: 20, color: isActive ? Colors.white : Colors.black),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: isActive ? Colors.white : Colors.black,
+              ),
             ),
           ],
         ),
@@ -598,164 +1099,120 @@ class _ColoringPageState extends State<ColoringPage> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildStickerBar() {
+  Widget _buildSubToolsMenu() {
+    final subTools = _selectedTool == 'kalem'
+        ? ['HB', '2B', '4B', '6B', '8B']
+        : ['Normal', 'Sulu Boya', 'Pastel', 'Yağlı Boya', 'Kuru Boya'];
     return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(color: Colors.yellow[50], border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 4, top: 2),
-            child: Text('📍 Ekrana dokunarak sticker koy, sürükleerek taşı, uzun basarak sil', style: TextStyle(fontSize: 8, color: Colors.grey)),
-          ),
-          Expanded(
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _stickers.length,
-              itemBuilder: (context, index) {
-                final sticker = _stickers[index];
-                final isSelected = _selectedSticker == sticker;
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedSticker = sticker),
-                  child: Container(
-                    width: 36, height: 36, margin: const EdgeInsets.symmetric(horizontal: 2),
-                    decoration: BoxDecoration(
-                      color: isSelected ? Colors.yellow[200] : Colors.white,
-                      border: Border.all(color: isSelected ? Colors.black : Colors.grey, width: isSelected ? 2 : 1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Center(child: Text(sticker, style: const TextStyle(fontSize: 20))),
+      height: 50,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: subTools.length,
+        itemBuilder: (context, index) {
+          final tool = subTools[index];
+          final isSelected = _selectedSubTool == tool;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedSubTool = tool),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.black : Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.black, width: 1),
+              ),
+              child: Center(
+                child: Text(
+                  tool,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? Colors.white : Colors.black,
                   ),
-                );
-              },
+                ),
+              ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
-
-  Widget _buildSubToolsMenu() {
-    if (_selectedTool == 'kalem') {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: Colors.grey[100], border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1))),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: _pencilGrades.map((p) {
-          final grade = p['grade'] as String;
-          final isSelected = _selectedSubTool == grade;
-          return GestureDetector(
-            onTap: () => setState(() { _selectedSubTool = grade; _brushSize = p['size'] as double; _showSubTools = false; }),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              decoration: BoxDecoration(color: isSelected ? Colors.black : Colors.white, border: Border.all(color: Colors.black, width: 1)),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(grade, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: isSelected ? Colors.white : Colors.black)),
-                Text(p['desc'] as String, style: TextStyle(fontSize: 6, color: isSelected ? Colors.grey[300] : Colors.grey[600])),
-              ]),
-            ),
-          );
-        }).toList()),
-      );
-    } else if (_selectedTool == 'fırça') {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: Colors.grey[100], border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1))),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: _brushStyles.map((b) {
-          final style = b['style'] as String;
-          final isSelected = _selectedSubTool == style;
-          return GestureDetector(
-            onTap: () => setState(() { _selectedSubTool = style; _brushSize = b['size'] as double; _showSubTools = false; }),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              decoration: BoxDecoration(color: isSelected ? Colors.black : Colors.white, border: Border.all(color: Colors.black, width: 1)),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(style, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: isSelected ? Colors.white : Colors.black)),
-                Text(b['desc'] as String, style: TextStyle(fontSize: 6, color: isSelected ? Colors.grey[300] : Colors.grey[600])),
-              ]),
-            ),
-          );
-        }).toList()),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-
-  Widget _buildImageWithFallback() {
-    if (_currentPage >= widget.imagePaths.length) {
-      return const Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey));
-    }
-    final currentPath = widget.imagePaths[_currentPage];
-    if (widget.isCustomImage) {
-      return Image.file(File(currentPath), fit: BoxFit.contain, errorBuilder: (c, e, s) => const Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey)));
-    }
-    if (widget.isBlankCanvas || widget.imagePaths.isEmpty) return const SizedBox.shrink();
-    final folderName = _getFolderName();
-    final regex = RegExp(r'_(\d+)\.png$');
-    final match = regex.firstMatch(currentPath);
-    if (match != null) {
-      final imageIndex = int.parse(match.group(1)!);
-      return Image.asset(currentPath, fit: BoxFit.contain, errorBuilder: (c, e, s) {
-        return Image.asset('assets/images/$folderName/${folderName}_${imageIndex.toString().padLeft(3, '0')}.png', fit: BoxFit.contain, errorBuilder: (c2, e2, s2) {
-          return Image.asset('assets/images/$folderName/${folderName}_$imageIndex.png', fit: BoxFit.contain, errorBuilder: (c3, e3, s3) => const Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey)));
-        });
-      });
-    }
-    return Image.asset(currentPath, fit: BoxFit.contain, errorBuilder: (c, e, s) => const Center(child: Icon(Icons.image_not_supported, size: 48, color: Colors.grey)));
-  }
-
-  String _getFolderName() {
-    const folderMap = {
-      'Çiftlik': 'ciftlik', 'Deniz Altı': 'deniz_alti', 'Dinozor': 'dinozor',
-      'Doğa Gökyüzü': 'doga_gokyuzu', 'Emoji': 'emoji', 'Erkek Karakter': 'erkek_karakter',
-      'Harfler': 'harfler', 'İnşaat': 'insaat', 'Kahramanlar': 'kahraman', 'Kız Karakter': 'kiz_karakter',
-      'Meslekler': 'meslekler', 'Meyveler': 'meyveler', 'Okyanus': 'okyanus', 'Oyuncaklar': 'oyuncak',
-      'Robotlar': 'robot', 'Sayılar': 'sayilar', 'Sevimli Dostlar': 'sevimli_dostlar', 'Tamamlayıcı': 'tamamlayici',
-      'Taşıtlar': 'tasitlar', 'Uzay': 'uzay', 'Vahşi Dostlar': 'vahsi_dostlar', 'Yiyecekler': 'yiyecekler',
-    };
-    return folderMap[widget.categoryName] ?? 'ciftlik';
-  }
 }
 
-// === MODELLER ===
-
-class StickerItem {
-  String emoji;
-  double x;
-  double y;
-  StickerItem({required this.emoji, required this.x, required this.y});
-}
-
-class DrawStroke {
-  final Color color;
-  final double size;
-  final List<Offset> points;
-  final bool isEraser;
-  DrawStroke({required this.color, required this.size, required this.points, this.isEraser = false});
-}
+// === ÇİZİCİ ===
 
 class StrokePainter extends CustomPainter {
   final List<DrawStroke> strokes;
   final DrawStroke? currentStroke;
-  StrokePainter({required this.strokes, this.currentStroke});
+  final double scale;
+  final Offset offset;
+
+  StrokePainter({
+    required this.strokes,
+    this.currentStroke,
+    this.scale = 1.0,
+    this.offset = Offset.zero,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     for (final stroke in strokes) {
+      if (stroke.isFill) {
+        // Kova aracı - daire çiz
+        if (stroke.points.isNotEmpty) {
+          final paint = Paint()
+            ..color = stroke.color.withOpacity(0.6)
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(
+            stroke.points.first,
+            stroke.size * 5,
+            paint,
+          );
+        }
+        continue;
+      }
+
       if (stroke.points.length < 2) continue;
-      final paint = Paint()..color = stroke.color..strokeWidth = stroke.size..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round..style = PaintingStyle.stroke;
-      final path = Path()..moveTo(stroke.points[0].dx, stroke.points[0].dy);
+      final paint = Paint()
+        ..color = stroke.color
+        ..strokeWidth = stroke.size
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke;
+
+      final path = Path()
+        ..moveTo(
+          stroke.points.first.dx * scale + offset.dx,
+          stroke.points.first.dy * scale + offset.dy,
+        );
       for (int i = 1; i < stroke.points.length; i++) {
-        path.lineTo(stroke.points[i].dx, stroke.points[i].dy);
+        path.lineTo(
+          stroke.points[i].dx * scale + offset.dx,
+          stroke.points[i].dy * scale + offset.dy,
+        );
       }
       canvas.drawPath(path, paint);
     }
+
     if (currentStroke != null && currentStroke!.points.length >= 2) {
-      final paint = Paint()..color = currentStroke!.color..strokeWidth = currentStroke!.size..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round..style = PaintingStyle.stroke;
-      final path = Path()..moveTo(currentStroke!.points[0].dx, currentStroke!.points[0].dy);
+      final paint = Paint()
+        ..color = currentStroke!.color
+        ..strokeWidth = currentStroke!.size
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke;
+
+      final path = Path()
+        ..moveTo(
+          currentStroke!.points.first.dx * scale + offset.dx,
+          currentStroke!.points.first.dy * scale + offset.dy,
+        );
       for (int i = 1; i < currentStroke!.points.length; i++) {
-        path.lineTo(currentStroke!.points[i].dx, currentStroke!.points[i].dy);
+        path.lineTo(
+          currentStroke!.points[i].dx * scale + offset.dx,
+          currentStroke!.points[i].dy * scale + offset.dy,
+        );
       }
       canvas.drawPath(path, paint);
     }
