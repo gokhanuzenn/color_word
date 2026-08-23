@@ -81,17 +81,20 @@ class _LetterTracingPageState extends State<LetterTracingPage>
     final guidePoints = _letterPaths[letter] ?? [];
     if (guidePoints.isEmpty) return;
 
-    // Tüm kullanıcının çizdiği noktaları topla
+    // Minimum çizim uzunluğu kontrolü
     final allUserPoints = <Offset>[];
     for (final stroke in _allStrokes) {
       allUserPoints.addAll(stroke);
     }
     allUserPoints.addAll(_currentStrokePoints);
 
+    // En az 20 nokta çizilmeli
+    if (allUserPoints.length < 20) return;
+
     int matchedPoints = 0;
     for (final guidePoint in guidePoints) {
       for (final userPoint in allUserPoints) {
-        if ((guidePoint - userPoint).distance < 60) {
+        if ((guidePoint - userPoint).distance < 40) {
           matchedPoints++;
           break;
         }
@@ -103,7 +106,8 @@ class _LetterTracingPageState extends State<LetterTracingPage>
       setState(() => _completion = newCompletion);
     }
 
-    if (_completion >= 0.8 && !_showCelebration) {
+    // %90 eşleşme ve en az 3 farklı yer çizilmeli
+    if (_completion >= 0.9 && allUserPoints.length > 50 && !_showCelebration) {
       _celebrate();
     }
   }

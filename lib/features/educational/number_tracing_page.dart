@@ -96,10 +96,13 @@ class _NumberTracingPageState extends State<NumberTracingPage> {
     }
     allUserPoints.addAll(_currentStrokePoints);
 
+    // En az 20 nokta çizilmeli
+    if (allUserPoints.length < 20) return;
+
     int matchedPoints = 0;
     for (final guidePoint in guidePoints) {
       for (final userPoint in allUserPoints) {
-        if ((guidePoint - userPoint).distance < 60) {
+        if ((guidePoint - userPoint).distance < 40) {
           matchedPoints++;
           break;
         }
@@ -111,7 +114,7 @@ class _NumberTracingPageState extends State<NumberTracingPage> {
       setState(() => _completion = newCompletion);
     }
 
-    if (_completion >= 0.8 && !_hasCompleted) {
+    if (_completion >= 0.9 && allUserPoints.length > 50 && !_hasCompleted) {
       _hasCompleted = true;
       HapticHelper.heavyImpact();
       // Sadece bir kez göster

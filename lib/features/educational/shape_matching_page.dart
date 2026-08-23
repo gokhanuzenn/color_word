@@ -14,35 +14,36 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
   int _score = 0;
   final Map<int, bool> _matchedShapes = {};
   bool _showCelebration = false;
+  int? _selectedShapeId; // Seçili şekil ID'si
 
   final List<Map<String, dynamic>> _levels = [
     {
       'name': 'Temel Şekiller',
       'shapes': [
-        {'id': 0, 'type': 'circle', 'color': Colors.red},
-        {'id': 1, 'type': 'square', 'color': Colors.blue},
-        {'id': 2, 'type': 'triangle', 'color': Colors.green},
+        {'id': 0, 'type': 'circle', 'color': Colors.red, 'label': 'Kırmızı Daire'},
+        {'id': 1, 'type': 'square', 'color': Colors.blue, 'label': 'Mavi Kare'},
+        {'id': 2, 'type': 'triangle', 'color': Colors.green, 'label': 'Yeşil Üçgen'},
       ],
     },
     {
       'name': 'Renkli Şekiller',
       'shapes': [
-        {'id': 0, 'type': 'circle', 'color': Colors.red},
-        {'id': 1, 'type': 'circle', 'color': Colors.blue},
-        {'id': 2, 'type': 'square', 'color': Colors.green},
-        {'id': 3, 'type': 'square', 'color': Colors.orange},
-        {'id': 4, 'type': 'triangle', 'color': Colors.purple},
-        {'id': 5, 'type': 'triangle', 'color': Colors.teal},
+        {'id': 0, 'type': 'circle', 'color': Colors.red, 'label': 'Kırmızı Daire'},
+        {'id': 1, 'type': 'circle', 'color': Colors.blue, 'label': 'Mavi Daire'},
+        {'id': 2, 'type': 'square', 'color': Colors.green, 'label': 'Yeşil Kare'},
+        {'id': 3, 'type': 'square', 'color': Colors.orange, 'label': 'Turuncu Kare'},
+        {'id': 4, 'type': 'triangle', 'color': Colors.purple, 'label': 'Mor Üçgen'},
+        {'id': 5, 'type': 'triangle', 'color': Colors.teal, 'label': 'Deniz Yeşili Üçgen'},
       ],
     },
     {
       'name': 'Yıldız ve Kalpler',
       'shapes': [
-        {'id': 0, 'type': 'star', 'color': Colors.amber},
-        {'id': 1, 'type': 'heart', 'color': Colors.pink},
-        {'id': 2, 'type': 'star', 'color': Colors.orange},
-        {'id': 3, 'type': 'heart', 'color': Colors.red},
-        {'id': 4, 'type': 'star', 'color': Colors.yellow},
+        {'id': 0, 'type': 'star', 'color': Colors.amber, 'label': 'Sarı Yıldız'},
+        {'id': 1, 'type': 'heart', 'color': Colors.pink, 'label': 'Pembe Kalp'},
+        {'id': 2, 'type': 'star', 'color': Colors.orange, 'label': 'Turuncu Yıldız'},
+        {'id': 3, 'type': 'heart', 'color': Colors.red, 'label': 'Kırmızı Kalp'},
+        {'id': 4, 'type': 'star', 'color': Colors.yellow, 'label': 'Altın Yıldız'},
       ],
     },
   ];
@@ -62,19 +63,44 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
     _draggables = List.from(level['shapes'])..shuffle();
     _matchedShapes.clear();
     _showCelebration = false;
+    _selectedShapeId = null;
   }
 
-  void _onShapeMatched(int shapeId) {
-    HapticHelper.mediumImpact();
+  void _selectShape(int shapeId) {
+    HapticHelper.lightImpact();
     setState(() {
-      _matchedShapes[shapeId] = true;
-      _score += 10;
+      _selectedShapeId = shapeId;
     });
+  }
 
-    if (_matchedShapes.length == _currentShapes.length) {
-      setState(() => _showCelebration = true);
-      HapticHelper.heavyImpact();
-      _showLevelComplete();
+  void _tryMatch(int targetShapeId) {
+    if (_selectedShapeId == null) return;
+
+    if (_selectedShapeId == targetShapeId) {
+      // Doğru eşleşme!
+      HapticHelper.mediumImpact();
+      setState(() {
+        _matchedShapes[targetShapeId] = true;
+        _selectedShapeId = null;
+        _score += 10;
+      });
+
+      if (_matchedShapes.length == _currentShapes.length) {
+        setState(() => _showCelebration = true);
+        HapticHelper.heavyImpact();
+        _showLevelComplete();
+      }
+    } else {
+      // Yanlış eşleşme
+      HapticHelper.selectionClick();
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ Yanlış şekil! Başka bir hedefe tıkla'),
+          backgroundColor: Colors.red,
+          duration: Duration(milliseconds: 800),
+        ),
+      );
     }
   }
 
@@ -112,14 +138,13 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
 
   @override
   Widget build(BuildContext context) {
-    const targetSize = 60.0;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
         child: Column(
           children: [
             _buildHeader(),
+
             // Skor
             Container(
               margin: const EdgeInsets.all(16),
@@ -139,7 +164,32 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
               ),
             ),
 
-            // Hedefler - üstte
+            // Talimat
+            if (_selectedShapeId != null)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green[300]!, width: 2),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.touch_app, color: Colors.green[600]),
+                    const SizedBox(width: 8),
+                    Text(
+                      '✅ Şimdi bir hedef kutusuna tıkla!',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.green[700]),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 8),
+
+            // Hedefler - üstte (dokunulabilir)
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               padding: const EdgeInsets.all(20),
@@ -151,63 +201,61 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
               child: Column(
                 children: [
                   Text(
-                    '⬆️ Şekilleri buraya sürükle ⬆️',
+                    '🎯 Hedeflere tıkla',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 16),
-                  // Hedef slotları
                   Wrap(
                     spacing: 16,
                     runSpacing: 16,
                     alignment: WrapAlignment.center,
                     children: _currentShapes.map((shape) {
                       final isMatched = _matchedShapes[shape['id']] == true;
-                      return DragTarget<int>(
-                        onAcceptWithDetails: (details) {
-                          if (details.data == shape['id']) {
-                            _onShapeMatched(shape['id']);
-                          } else {
-                            HapticHelper.selectionClick();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('❌ Yanlış şekil! Doğru形状i sürükle'),
-                                backgroundColor: Colors.red,
-                                duration: const Duration(milliseconds: 800),
-                              ),
-                            );
-                          }
-                        },
-                        builder: (context, candidateData, rejectedData) {
-                          final isHovering = candidateData.isNotEmpty;
-                          return AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: targetSize + 10,
-                            height: targetSize + 10,
-                            decoration: BoxDecoration(
-                              color: isHovering
-                                  ? (shape['color'] as Color).withOpacity(0.3)
-                                  : isMatched
-                                      ? Colors.green.withOpacity(0.2)
-                                      : Colors.grey[100]!,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isHovering
-                                    ? (shape['color'] as Color)
-                                    : isMatched
-                                        ? Colors.green
-                                        : Colors.grey[300]!,
-                                width: isHovering ? 3 : 2,
-                              ),
+                      final isTarget = _selectedShapeId != null && !isMatched;
+
+                      return GestureDetector(
+                        onTap: isMatched ? null : () => _tryMatch(shape['id']),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 70,
+                          height: 70,
+                          decoration: BoxDecoration(
+                            color: isMatched
+                                ? Colors.green.withOpacity(0.2)
+                                : isTarget
+                                    ? (shape['color'] as Color).withOpacity(0.1)
+                                    : Colors.grey[100]!,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isMatched
+                                  ? Colors.green
+                                  : isTarget
+                                      ? (shape['color'] as Color)
+                                      : Colors.grey[300]!,
+                              width: isTarget ? 3 : 2,
                             ),
-                            child: isMatched
-                                ? Icon(Icons.check_circle, color: Colors.green, size: targetSize * 0.6)
-                                : Icon(
-                                    Icons.add_circle_outline,
-                                    color: isHovering ? (shape['color'] as Color) : Colors.grey[400]!,
-                                    size: targetSize * 0.5,
-                                  ),
-                          );
-                        },
+                          ),
+                          child: isMatched
+                              ? const Icon(Icons.check_circle, color: Colors.green, size: 36)
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      isTarget ? Icons.touch_app : Icons.add_circle_outline,
+                                      color: isTarget ? (shape['color'] as Color) : Colors.grey[400]!,
+                                      size: 28,
+                                    ),
+                                    if (isTarget) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        (shape['label'] as String).split(' ').last,
+                                        style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                        ),
                       );
                     }).toList(),
                   ),
@@ -217,7 +265,7 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
 
             const SizedBox(height: 16),
 
-            // Sürüklenebilir şekiller - altta
+            // Seçilebilir şekiller - altta
             Expanded(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -230,32 +278,48 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
                 child: Column(
                   children: [
                     Text(
-                      '⬇️ Aşağıdaki şekilleri yukarıya sürükle ⬆️',
+                      '👇 Bir şekil seç',
                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 12),
                     Expanded(
-                      child: Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        alignment: WrapAlignment.center,
-                        children: _draggables.map((shape) {
-                          final isMatched = _matchedShapes[shape['id']] == true;
-                          if (isMatched) return const SizedBox(width: 60, height: 60);
+                      child: Center(
+                        child: Wrap(
+                          spacing: 16,
+                          runSpacing: 16,
+                          alignment: WrapAlignment.center,
+                          children: _draggables.map((shape) {
+                            final isMatched = _matchedShapes[shape['id']] == true;
+                            if (isMatched) return const SizedBox(width: 65, height: 65);
 
-                          return Draggable<int>(
-                            data: shape['id'],
-                            feedback: Material(
-                              color: Colors.transparent,
-                              child: _buildShape(shape['type'], shape['color'], 55),
-                            ),
-                            childWhenDragging: Opacity(
-                              opacity: 0.3,
-                              child: _buildShape(shape['type'], shape['color'], 55),
-                            ),
-                            child: _buildShape(shape['type'], shape['color'], 55),
-                          );
-                        }).toList(),
+                            final isSelected = _selectedShapeId == shape['id'];
+
+                            return GestureDetector(
+                              onTap: () => _selectShape(shape['id']),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: 65,
+                                height: 65,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? (shape['color'] as Color).withOpacity(0.2)
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? (shape['color'] as Color)
+                                        : Colors.grey[300]!,
+                                    width: isSelected ? 3 : 2,
+                                  ),
+                                  boxShadow: isSelected
+                                      ? [BoxShadow(color: (shape['color'] as Color).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))]
+                                      : [],
+                                ),
+                                child: Center(child: _buildShape(shape['type'], shape['color'], 45)),
+                              ),
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
                   ],
@@ -293,7 +357,7 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('🎨 Şekil Eşleştirme', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-                Text('Şekilleri doğru yerlere sürükle', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Text('Şekilleri doğru yerlere yerleştir', style: TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             ),
           ),

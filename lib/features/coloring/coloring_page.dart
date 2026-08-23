@@ -7,8 +7,6 @@ import '../../data/services/score_service.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../data/services/achievement_service.dart';
 
-// === MODELLER ===
-
 class DrawStroke {
   final Color color;
   final double size;
@@ -44,8 +42,6 @@ class TextItem {
   });
 }
 
-// === BOYAMA SAYFASI ===
-
 class ColoringPage extends StatefulWidget {
   final String categoryName;
   final String categoryIcon;
@@ -72,10 +68,9 @@ class ColoringPage extends StatefulWidget {
 
 class _ColoringPageState extends State<ColoringPage>
     with SingleTickerProviderStateMixin {
-  // Sayfa
-  late int _currentPage;
+  final GlobalKey _drawingKey = GlobalKey();
 
-  // Çizim
+  late int _currentPage;
   List<DrawStroke> _strokes = [];
   List<DrawStroke> _redoStack = [];
   Color _selectedColor = Colors.black;
@@ -84,27 +79,15 @@ class _ColoringPageState extends State<ColoringPage>
   bool _isFilling = false;
   bool _isTextMode = false;
   String _selectedTool = 'kalem';
-  String _selectedSubTool = 'HB';
   bool _showSubTools = false;
   bool _isDrawing = false;
   DrawStroke? _currentStroke;
   Offset? _eraserPosition;
 
-  // Sticker
   bool _stickerMode = false;
   String _selectedSticker = '⭐';
   final List<StickerItem> _placedStickers = [];
-
-  // Metin
   final List<TextItem> _placedTexts = [];
-
-  // Zoom
-  double _scale = 1.0;
-  Offset _offset = Offset.zero;
-  bool _isScaling = false;
-  Offset _lastFocalPoint = Offset.zero;
-  double _lastScale = 1.0;
-  Offset _lastOffset = Offset.zero;
 
   bool _hasUnsavedChanges = false;
   bool _showSparkle = false;
@@ -131,38 +114,12 @@ class _ColoringPageState extends State<ColoringPage>
     super.dispose();
   }
 
-  // === ZOOM ===
-
-  void _onScaleStart(ScaleStartDetails details) {
-    _lastFocalPoint = details.focalPoint;
-    _lastScale = _scale;
-    _lastOffset = _offset;
-    if (details.pointerCount == 2) {
-      _isScaling = true;
-    }
-  }
-
-  void _onScaleUpdate(ScaleUpdateDetails details) {
-    if (details.pointerCount == 2) {
-      final newScale = (_lastScale * details.scale).clamp(0.5, 3.0);
-      final newOffset = _lastOffset + (details.focalPoint - _lastFocalPoint);
-      setState(() {
-        _scale = newScale;
-        _offset = newOffset;
-      });
-    } else if (details.pointerCount == 1 && !_isScaling) {
-      if (_stickerMode || _isTextMode) return;
-      if (!_isDrawing) {
-        _startDrawing(details.focalPoint);
-      } else {
-        _continueDrawing(details.focalPoint);
-      }
-    }
-  }
-
-  void _onScaleEnd(ScaleEndDetails details) {
-    _isScaling = false;
-    _endDrawing();
+  // Global koordinatları yerel koordinatlara çevir
+  Offset _globalToLocal(Offset globalPoint) {
+    final RenderBox? renderBox =
+        _drawingKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return globalPoint;
+    return renderBox.globalToLocal(globalPoint);
   }
 
   // === ÇİZİM ===
@@ -170,7 +127,6 @@ class _ColoringPageState extends State<ColoringPage>
   void _startDrawing(Offset localPoint) {
     if (_isScaling) return;
 
-    // Sticker modunda
     if (_stickerMode) {
       setState(() {
         _placedStickers.add(StickerItem(
@@ -187,7 +143,6 @@ class _ColoringPageState extends State<ColoringPage>
       return;
     }
 
-    // Metin modunda
     if (_isTextMode) {
       _showTextInputDialog(localPoint);
       return;
@@ -198,7 +153,6 @@ class _ColoringPageState extends State<ColoringPage>
       _redoStack.clear();
 
       if (_isFilling) {
-        // Kova aracı
         _strokes.add(DrawStroke(
           color: _selectedColor,
           size: _brushSize,
@@ -284,8 +238,6 @@ class _ColoringPageState extends State<ColoringPage>
     setState(() => _strokes = newStrokes);
   }
 
-  // === GERİ AL / İLERİ AL ===
-
   void _undo() {
     if (_placedStickers.isNotEmpty) {
       setState(() => _placedStickers.removeLast());
@@ -310,8 +262,6 @@ class _ColoringPageState extends State<ColoringPage>
     }
   }
 
-  // === SAYFA DEĞİŞTİRME ===
-
   void _changePage(int delta) {
     final newIndex = _currentPage + delta;
     if (newIndex >= 0 && newIndex < widget.imagePaths.length) {
@@ -322,18 +272,14 @@ class _ColoringPageState extends State<ColoringPage>
         _redoStack.clear();
         _placedStickers.clear();
         _placedTexts.clear();
-        _scale = 1.0;
-        _offset = Offset.zero;
       });
       HapticHelper.mediumImpact();
     }
   }
 
-  // === TAMAMLAMA ===
-
   Future<void> _completeDrawing() async {
     if (_strokes.isEmpty && _placedStickers.isEmpty) return;
-    final result = await AchievementService.instance.completeDrawing();
+    await AchievementService.instance.completeDrawing();
     await ScoreService.instance.addDailyColoring();
     setState(() => _showSparkle = true);
     _sparkleController.forward(from: 0);
@@ -349,8 +295,6 @@ class _ColoringPageState extends State<ColoringPage>
       );
     }
   }
-
-  // === METİN EKLEME ===
 
   void _showTextInputDialog(Offset position) {
     final textController = TextEditingController();
@@ -399,8 +343,6 @@ class _ColoringPageState extends State<ColoringPage>
       ),
     );
   }
-
-  // === KAYDETME ===
 
   void _saveDrawing() async {
     try {
@@ -455,6 +397,40 @@ class _ColoringPageState extends State<ColoringPage>
     } catch (e) {}
   }
 
+  // === ZOOM DEĞİŞKENLERİ ===
+  bool _isScaling = false;
+  Offset _lastFocalPoint = Offset.zero;
+  double _lastScale = 1.0;
+
+  void _onScaleStart(ScaleStartDetails details) {
+    _lastFocalPoint = details.focalPoint;
+    _lastScale = 1.0;
+    if (details.pointerCount == 2) {
+      _isScaling = true;
+    }
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails details) {
+    if (details.pointerCount == 2) {
+      _isScaling = true;
+    } else if (details.pointerCount == 1 && _isScaling) {
+      _isScaling = false;
+    } else if (details.pointerCount == 1 && !_isScaling) {
+      final localPoint = _globalToLocal(details.focalPoint);
+      if (_stickerMode || _isTextMode) return;
+      if (!_isDrawing) {
+        _startDrawing(localPoint);
+      } else {
+        _continueDrawing(localPoint);
+      }
+    }
+  }
+
+  void _onScaleEnd(ScaleEndDetails details) {
+    _isScaling = false;
+    _endDrawing();
+  }
+
   // === ANA SAYFA ===
 
   @override
@@ -498,14 +474,6 @@ class _ColoringPageState extends State<ColoringPage>
               ],
             ),
           ),
-          // Zoom göstergesi
-          if (_scale != 1.0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              margin: const EdgeInsets.only(right: 4),
-              decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(8)),
-              child: Text('${(_scale * 100).toInt()}%', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.blue[700])),
-            ),
           _buildSmallButton(icon: Icons.undo, onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty) ? _undo : null),
           _buildSmallButton(icon: Icons.redo, onTap: _redoStack.isNotEmpty ? _redo : null),
           _buildSmallButton(icon: Icons.save, onTap: _strokes.isNotEmpty ? _saveDrawing : null),
@@ -519,8 +487,6 @@ class _ColoringPageState extends State<ColoringPage>
                       _redoStack.clear();
                       _placedStickers.clear();
                       _placedTexts.clear();
-                      _scale = 1.0;
-                      _offset = Offset.zero;
                     });
                   }
                 : null,
@@ -551,12 +517,13 @@ class _ColoringPageState extends State<ColoringPage>
     );
   }
 
-  // === ÇİZİM ALANI (BASİT VE ÇALIŞAN) ===
+  // === ÇİZİM ALANI ===
 
   Widget _buildDrawingArea() {
     return Padding(
       padding: const EdgeInsets.all(8),
       child: Container(
+        key: _drawingKey,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -571,145 +538,114 @@ class _ColoringPageState extends State<ColoringPage>
             onScaleEnd: _onScaleEnd,
             child: Stack(
               children: [
-                // Transform ile zoom
-                Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.identity()
-                    ..scale(_scale, _scale)
-                    ..translate(_offset.dx / _scale, _offset.dy / _scale),
-                  child: Stack(
-                    children: [
-                      // Arka plan
-                      if (widget.isBlankCanvas)
-                        Positioned.fill(child: ColoredBox(color: Colors.white)),
-                      if (!widget.isBlankCanvas)
-                        Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
+                // Arka plan resmi
+                if (!widget.isBlankCanvas)
+                  Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
+                if (widget.isBlankCanvas)
+                  Positioned.fill(child: ColoredBox(color: Colors.white)),
 
-                      // Çizim katmanı
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
-                        ),
-                      ),
-
-                      // Sticker'lar
-                      ..._placedStickers.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final sticker = entry.value;
-                        return Positioned(
-                          left: sticker.x - 24,
-                          top: sticker.y - 24,
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              GestureDetector(
-                                onPanUpdate: (details) {
-                                  setState(() {
-                                    sticker.x += details.delta.dx / _scale;
-                                    sticker.y += details.delta.dy / _scale;
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Text(sticker.emoji, style: const TextStyle(fontSize: 40)),
-                                ),
-                              ),
-                              Positioned(
-                                right: -8, top: -8,
-                                child: GestureDetector(
-                                  onTap: () {
-                                    HapticHelper.lightImpact();
-                                    setState(() => _placedStickers.removeAt(index));
-                                  },
-                                  child: Container(
-                                    width: 20, height: 20,
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 2),
-                                    ),
-                                    child: const Icon(Icons.close, size: 12, color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-
-                      // Metinler
-                      ..._placedTexts.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final text = entry.value;
-                        return Positioned(
-                          left: text.x,
-                          top: text.y,
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              GestureDetector(
-                                onPanUpdate: (details) {
-                                  setState(() {
-                                    text.x += details.delta.dx / _scale;
-                                    text.y += details.delta.dy / _scale;
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.8),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    text.text,
-                                    style: TextStyle(fontSize: text.fontSize, color: text.color, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                right: -8, top: -8,
-                                child: GestureDetector(
-                                  onTap: () {
-                                    HapticHelper.lightImpact();
-                                    setState(() => _placedTexts.removeAt(index));
-                                  },
-                                  child: Container(
-                                    width: 20, height: 20,
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 2),
-                                    ),
-                                    child: const Icon(Icons.close, size: 12, color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
+                // Çizim katmanı
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
                   ),
                 ),
 
-                // Silgi imleci (transform dışında)
-                if (_isErasing && _eraserPosition != null)
-                  Positioned(
-                    left: _eraserPosition!.dx * _scale + _offset.dx - _brushSize * 2,
-                    top: _eraserPosition!.dy * _scale + _offset.dy - _brushSize * 2,
-                    child: IgnorePointer(
-                      child: Container(
-                        width: _brushSize * 4, height: _brushSize * 4,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.red, width: 2),
-                          color: Colors.red.withOpacity(0.2),
+                // Sticker'lar
+                ..._placedStickers.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final sticker = entry.value;
+                  return Positioned(
+                    left: sticker.x - 24,
+                    top: sticker.y - 24,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        GestureDetector(
+                          onPanUpdate: (details) {
+                            setState(() {
+                              sticker.x += details.delta.dx;
+                              sticker.y += details.delta.dy;
+                            });
+                          },
+                          child: Text(sticker.emoji, style: const TextStyle(fontSize: 40)),
                         ),
-                      ),
+                        Positioned(
+                          right: -8, top: -8,
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticHelper.lightImpact();
+                              setState(() => _placedStickers.removeAt(index));
+                            },
+                            child: Container(
+                              width: 20, height: 20,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                              ),
+                              child: const Icon(Icons.close, size: 12, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                  );
+                }),
 
-                // Kova aracı göstergesi
+                // Metinler
+                ..._placedTexts.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final text = entry.value;
+                  return Positioned(
+                    left: text.x,
+                    top: text.y,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        GestureDetector(
+                          onPanUpdate: (details) {
+                            setState(() {
+                              text.x += details.delta.dx;
+                              text.y += details.delta.dy;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              text.text,
+                              style: TextStyle(fontSize: text.fontSize, color: text.color, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: -8, top: -8,
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticHelper.lightImpact();
+                              setState(() => _placedTexts.removeAt(index));
+                            },
+                            child: Container(
+                              width: 20, height: 20,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                              ),
+                              child: const Icon(Icons.close, size: 12, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+
+                // Kova göstergesi
                 if (_isFilling)
                   Positioned(
                     bottom: 8, left: 8,
@@ -913,7 +849,7 @@ class _ColoringPageState extends State<ColoringPage>
           }),
           _buildToolButton(icon: Icons.emoji_emotions, label: 'Sticker', isActive: _stickerMode, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _stickerMode = !_stickerMode; _isErasing = false; _isFilling = false; _isTextMode = false; _showSubTools = false; });
+            setState(() { _stickerMode = !_stickerMode; _isErasing = false; _isFilling = false; _isTextMode = false; _showSubTools = true; });
           }),
         ],
       ),
@@ -945,6 +881,41 @@ class _ColoringPageState extends State<ColoringPage>
   }
 
   Widget _buildSubToolsMenu() {
+    // Sticker menüsü
+    if (_stickerMode) {
+      final stickers = ['⭐', '❤️', '🌈', '🦄', '🎈', '🎵', '🌸', '🦋', '🎨', '🍭', '🌺', '✨', '🎉', '🐱', '🐶', '🐰'];
+      return Container(
+        height: 60,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: stickers.length,
+          itemBuilder: (context, index) {
+            final sticker = stickers[index];
+            final isSelected = _selectedSticker == sticker;
+            return GestureDetector(
+              onTap: () {
+                HapticHelper.lightImpact();
+                setState(() { _selectedSticker = sticker; _showSubTools = false; });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: 48, height: 48,
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.orange[50] : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isSelected ? Colors.orange : Colors.grey[300]!, width: isSelected ? 2 : 1),
+                ),
+                child: Center(child: Text(sticker, style: const TextStyle(fontSize: 28))),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // Kalem/Fırça varyasyonları
     final subTools = _selectedTool == 'kalem' ? ['HB', '2B', '4B', '6B', '8B'] : ['Normal', 'Sulu Boya', 'Pastel', 'Yağlı Boya', 'Kuru Boya'];
     return Container(
       height: 50,
@@ -954,22 +925,20 @@ class _ColoringPageState extends State<ColoringPage>
         itemCount: subTools.length,
         itemBuilder: (context, index) {
           final tool = subTools[index];
-          final isSelected = _selectedSubTool == tool;
           return GestureDetector(
             onTap: () {
               HapticHelper.lightImpact();
-              setState(() { _selectedSubTool = tool; _showSubTools = false; });
+              setState(() { _showSubTools = false; });
             },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+            child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 4),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: isSelected ? Colors.black : Colors.white,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.black, width: 1),
               ),
-              child: Center(child: Text(tool, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : Colors.black))),
+              child: Center(child: Text(tool, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
             ),
           );
         },
