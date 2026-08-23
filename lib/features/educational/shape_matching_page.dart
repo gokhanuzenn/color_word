@@ -217,14 +217,14 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
                         onTap: isMatched ? null : () => _tryMatch(shape['id']),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          width: 70,
-                          height: 70,
+                          width: 75,
+                          height: 75,
                           decoration: BoxDecoration(
                             color: isMatched
                                 ? Colors.green.withOpacity(0.2)
                                 : isTarget
-                                    ? (shape['color'] as Color).withOpacity(0.1)
-                                    : Colors.grey[100]!,
+                                    ? (shape['color'] as Color).withOpacity(0.15)
+                                    : Colors.grey[50]!,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: isMatched
@@ -237,23 +237,9 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
                           ),
                           child: isMatched
                               ? const Icon(Icons.check_circle, color: Colors.green, size: 36)
-                              : Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      isTarget ? Icons.touch_app : Icons.add_circle_outline,
-                                      color: isTarget ? (shape['color'] as Color) : Colors.grey[400]!,
-                                      size: 28,
-                                    ),
-                                    if (isTarget) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        (shape['label'] as String).split(' ').last,
-                                        style: TextStyle(fontSize: 9, color: Colors.grey[600]),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
-                                  ],
+                              : Opacity(
+                                  opacity: isTarget ? 0.8 : 0.25,
+                                  child: _buildShape(shape['type'], shape['color'], 40),
                                 ),
                         ),
                       );
@@ -296,26 +282,36 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
 
                             return GestureDetector(
                               onTap: () => _selectShape(shape['id']),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                width: 65,
-                                height: 65,
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? (shape['color'] as Color).withOpacity(0.2)
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? (shape['color'] as Color)
-                                        : Colors.grey[300]!,
-                                    width: isSelected ? 3 : 2,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    width: 65,
+                                    height: 65,
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? (shape['color'] as Color).withOpacity(0.2)
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? (shape['color'] as Color)
+                                            : Colors.grey[300]!,
+                                        width: isSelected ? 3 : 2,
+                                      ),
+                                      boxShadow: isSelected
+                                          ? [BoxShadow(color: (shape['color'] as Color).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))]
+                                          : [],
+                                    ),
+                                    child: Center(child: _buildShape(shape['type'], shape['color'], 40)),
                                   ),
-                                  boxShadow: isSelected
-                                      ? [BoxShadow(color: (shape['color'] as Color).withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))]
-                                      : [],
-                                ),
-                                child: Center(child: _buildShape(shape['type'], shape['color'], 45)),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    (shape['label'] as String).split(' ').last,
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey[600]),
+                                  ),
+                                ],
                               ),
                             );
                           }).toList(),
