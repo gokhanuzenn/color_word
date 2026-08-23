@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     
+    <!-- İnternet İzni (Reklamlar için) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    
     <!-- Uygulama İçi Satın Alma İzni -->
     <uses-permission android:name="com.android.vending.BILLING"/>
     

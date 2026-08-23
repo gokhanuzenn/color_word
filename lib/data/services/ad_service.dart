@@ -12,14 +12,17 @@ class AdService {
   static AdService get instance => _instance ??= AdService._();
   AdService._();
 
-  // === GERÇEK ADMOB ID'LERİ ===
+  // === ADMOB ID'LERİ ===
+  // Test modunda test ID'leri kullanılıyor
   static const String appId = 'ca-app-pub-9171283684710932~8151502461';
-  static const String bannerAdUnitId = 'ca-app-pub-9171283684710932/9463594451';
-  static const String interstitialAdUnitId = 'ca-app-pub-9171283684710932/9407859330';
+  
+  // Test reklam ID'leri (geliştirme için - uygulama yayınlanmadan önce)
+  static const String bannerAdUnitId = 'ca-app-pub-3940256099942544/6300978111';
+  static const String interstitialAdUnitId = 'ca-app-pub-3940256099942544/1033173712';
 
-  // === TEST ID'LERİ (geliştirme için) ===
-  // static const String bannerAdUnitId = 'ca-app-pub-3940256099942544/6300978111';
-  // static const String interstitialAdUnitId = 'ca-app-pub-3940256099942544/1033173712';
+  // Gerçek reklam ID'leri (uygulama yayınlandıktan sonra)
+  // static const String bannerAdUnitId = 'ca-app-pub-9171283684710932/9463594451';
+  // static const String interstitialAdUnitId = 'ca-app-pub-9171283684710932/9407859330';
 
   bool _isPremium = false;
   bool _showAds = true;
@@ -34,7 +37,18 @@ class AdService {
 
   /// AdMob'u başlat
   Future<void> initialize() async {
+    // Test cihazı ayarla (geliştirme için)
     await MobileAds.instance.initialize();
+    
+    // Debug modunda test reklamları için
+    if (kDebugMode) {
+      MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(
+          testDeviceIds: ['YOUR_TEST_DEVICE_ID'],
+        ),
+      );
+    }
+    
     await _loadInterstitialAd();
     _checkPremiumStatus();
   }
