@@ -1,8 +1,6 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../core/utils/haptic_helper.dart';
 
-/// Noktaları Birleştirme Sayfası
 class ConnectDotsPage extends StatefulWidget {
   const ConnectDotsPage({super.key});
 
@@ -16,36 +14,35 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
   final List<int> _connectedDots = [];
   bool _isCompleted = false;
 
-  // Bulmacalar - her biri noktalar ve resim
   final List<Map<String, dynamic>> _puzzles = [
     {
       'name': 'Yıldız',
       'icon': '⭐',
       'color': Colors.amber,
       'dots': [
-        Offset(150, 50),   // 1
-        Offset(180, 120),  // 2
-        Offset(250, 120),  // 3
-        Offset(195, 170),  // 4
-        Offset(215, 250),  // 5
-        Offset(150, 200),  // 6
-        Offset(85, 250),   // 7
-        Offset(105, 170),  // 8
-        Offset(50, 120),   // 9
-        Offset(120, 120),  // 10
+        Offset(150, 60),   // 0
+        Offset(185, 130),  // 1
+        Offset(260, 130),  // 2
+        Offset(200, 175),  // 3
+        Offset(220, 250),  // 4
+        Offset(150, 210),  // 5
+        Offset(80, 250),   // 6
+        Offset(100, 175),  // 7
+        Offset(40, 130),   // 8
+        Offset(115, 130),  // 9
       ],
-      'solution': [0, 2, 4, 6, 8, 1, 3, 5, 7, 9, 0],
+      'solution': [0, 9, 2, 4, 6, 8, 1, 3, 5, 7, 0],
     },
     {
       'name': 'Ev',
       'icon': '🏠',
       'color': Colors.brown,
       'dots': [
-        Offset(150, 50),   // 1 - çatı tepesi
-        Offset(250, 120),  // 2 - çatı sağ
-        Offset(250, 250),  // 3 - duvar sağ
-        Offset(50, 250),   // 4 - duvar sol
-        Offset(50, 120),   // 5 - çatı sol
+        Offset(150, 60),   // 0 - çatı tepesi
+        Offset(260, 130),  // 1 - çatı sağ
+        Offset(260, 260),  // 2 - duvar sağ
+        Offset(40, 260),   // 3 - duvar sol
+        Offset(40, 130),   // 4 - çatı sol
       ],
       'solution': [0, 1, 2, 3, 4, 0],
     },
@@ -54,14 +51,14 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
       'icon': '❤️',
       'color': Colors.red,
       'dots': [
-        Offset(150, 80),   // 1
-        Offset(200, 50),   // 2
-        Offset(250, 80),   // 3
-        Offset(250, 150),  // 4
-        Offset(150, 250),  // 5
-        Offset(50, 150),   // 6
-        Offset(50, 80),    // 7
-        Offset(100, 50),   // 8
+        Offset(150, 90),   // 0
+        Offset(200, 55),   // 1
+        Offset(255, 80),   // 2
+        Offset(255, 155),  // 3
+        Offset(150, 255),  // 4
+        Offset(45, 155),   // 5
+        Offset(45, 80),    // 6
+        Offset(100, 55),   // 7
       ],
       'solution': [0, 1, 2, 3, 4, 5, 6, 7, 0],
     },
@@ -70,19 +67,19 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
       'icon': '☀️',
       'color': Colors.orange,
       'dots': [
-        Offset(150, 150),  // 1 - merkez
-        Offset(150, 50),   // 2 - üst
-        Offset(200, 80),   // 3
-        Offset(230, 120),  // 4
-        Offset(250, 150),  // 5 - sağ
-        Offset(230, 180),  // 6
-        Offset(200, 220),  // 7
-        Offset(150, 250),  // 8 - alt
-        Offset(100, 220),  // 9
-        Offset(70, 180),   // 10
-        Offset(50, 150),   // 11 - sol
-        Offset(70, 120),   // 12
-        Offset(100, 80),   // 13
+        Offset(150, 155),  // 0 - merkez
+        Offset(150, 55),   // 1 - üst
+        Offset(200, 85),   // 2
+        Offset(230, 125),  // 3
+        Offset(250, 155),  // 4 - sağ
+        Offset(230, 185),  // 5
+        Offset(200, 225),  // 6
+        Offset(150, 255),  // 7 - alt
+        Offset(100, 225),  // 8
+        Offset(70, 185),   // 9
+        Offset(50, 155),   // 10 - sol
+        Offset(70, 125),   // 11
+        Offset(100, 85),   // 12
       ],
       'solution': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0],
     },
@@ -91,18 +88,18 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
       'icon': '🚗',
       'color': Colors.blue,
       'dots': [
-        Offset(50, 180),   // 1
-        Offset(80, 120),   // 2
-        Offset(120, 100),  // 3
-        Offset(200, 100),  // 4
-        Offset(250, 120),  // 5
-        Offset(280, 180),  // 6
-        Offset(280, 200),  // 7
-        Offset(230, 200),  // 8
-        Offset(220, 180),  // 9
-        Offset(110, 180),  // 10
-        Offset(100, 200),  // 11
-        Offset(50, 200),   // 12
+        Offset(55, 195),   // 0
+        Offset(85, 135),   // 1
+        Offset(125, 110),  // 2
+        Offset(205, 110),  // 3
+        Offset(255, 135),  // 4
+        Offset(285, 195),  // 5
+        Offset(285, 210),  // 6
+        Offset(235, 210),  // 7
+        Offset(225, 195),  // 8
+        Offset(115, 195),  // 9
+        Offset(105, 210),  // 10
+        Offset(55, 210),   // 11
       ],
       'solution': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0],
     },
@@ -111,21 +108,21 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
       'icon': '🦋',
       'color': Colors.purple,
       'dots': [
-        Offset(150, 150),  // 1 - gövde
-        Offset(100, 80),   // 2 - sol üst kanat
-        Offset(50, 50),    // 3
-        Offset(80, 120),   // 4
-        Offset(50, 200),   // 5 - sol alt kanat
-        Offset(80, 250),   // 6
-        Offset(100, 200),  // 7
-        Offset(200, 200),  // 8 - sağ alt kanat
-        Offset(220, 250),  // 9
-        Offset(250, 200),  // 10
-        Offset(220, 120),  // 11 - sağ üst kanat
-        Offset(250, 50),   // 12
-        Offset(200, 80),   // 13
+        Offset(150, 155),  // 0 - gövde
+        Offset(105, 85),   // 1
+        Offset(55, 55),    // 2
+        Offset(85, 125),   // 3
+        Offset(55, 205),   // 4
+        Offset(85, 255),   // 5
+        Offset(105, 205),  // 6
+        Offset(195, 205),  // 7
+        Offset(215, 255),  // 8
+        Offset(245, 205),  // 9
+        Offset(215, 125),  // 10
+        Offset(245, 55),   // 11
+        Offset(195, 85),   // 12
       ],
-      'solution': [0, 1, 2, 3, 4, 5, 6, 7, 0, 8, 9, 10, 11, 12, 13, 1],
+      'solution': [0, 1, 2, 3, 4, 5, 6, 7, 0, 8, 9, 10, 11, 12, 1, 0],
     },
   ];
 
@@ -140,13 +137,12 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             _buildHeader(puzzle),
 
-            // Puzzle bilgisi
+            // Talimat
             Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -155,24 +151,23 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(puzzle['icon'], style: const TextStyle(fontSize: 40)),
-                  const SizedBox(width: 16),
+                  Text(puzzle['icon'], style: const TextStyle(fontSize: 32)),
+                  const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(puzzle['name'], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                       Text(
-                        puzzle['name'],
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-                      ),
-                      Text(
-                        'Sıradaki nokta: ${_nextDotIndex + 1}',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        '☝️ ${_nextDotIndex + 1}. noktaya dokunarak çizgi çek',
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
+
+            const SizedBox(height: 8),
 
             // Çizim alanı
             Expanded(
@@ -202,7 +197,6 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
               ),
             ),
 
-            // Alt kontroller
             _buildControls(),
           ],
         ),
@@ -253,9 +247,8 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
   void _handleTap(Offset tapPosition, List<Offset> dots) {
     if (_isCompleted) return;
 
-    // En yakın noktayı bul
     int? nearestIndex;
-    double minDistance = 50; // Maksimum tıklama mesafesi
+    double minDistance = 50;
 
     for (int i = 0; i < dots.length; i++) {
       if (_connectedDots.contains(i)) continue;
@@ -267,27 +260,25 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
     }
 
     if (nearestIndex != null && nearestIndex == _nextDotIndex) {
-      // Doğru noktaya tıklandı
       HapticHelper.lightImpact();
       setState(() {
         _connectedDots.add(nearestIndex!);
         _nextDotIndex++;
       });
 
-      // Tamamlandı mı?
       if (_nextDotIndex >= dots.length) {
         setState(() => _isCompleted = true);
         HapticHelper.heavyImpact();
         _showCelebration();
       }
     } else if (nearestIndex != null) {
-      // Yanlış noktaya tıklandı
       HapticHelper.selectionClick();
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ ${nearestIndex + 1}. noktaya değil, ${_nextDotIndex + 1}. noktaya tıkla!'),
-          backgroundColor: Colors.red,
-          duration: const Duration(milliseconds: 500),
+          content: Text('❌ Şimdi ${_nextDotIndex + 1}. noktaya tıkla!'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(milliseconds: 800),
         ),
       );
     }
@@ -297,16 +288,14 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('🎉 Tebrikler!'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_puzzles[_currentPuzzleIndex]['icon'], style: const TextStyle(fontSize: 60)),
             const SizedBox(height: 16),
-            Text(
-              '${_puzzles[_currentPuzzleIndex]['name']} tamamlandı!',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
+            Text('${_puzzles[_currentPuzzleIndex]['name']} tamamlandı!', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             const Text('⭐ +3 Yıldız kazandın!', style: TextStyle(fontSize: 16, color: Colors.amber)),
           ],
@@ -375,7 +364,7 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
         onTap();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
@@ -383,9 +372,9 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
         ),
         child: Row(
           children: [
-            Icon(icon, color: color, size: 20),
+            Icon(icon, color: color, size: 18),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13)),
           ],
         ),
       ),
@@ -393,7 +382,6 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
   }
 }
 
-/// Noktaları Birleştirme Painter'ı
 class ConnectDotsPainter extends CustomPainter {
   final List<Offset> dots;
   final List<int> connectedDots;
@@ -411,7 +399,6 @@ class ConnectDotsPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Arka plan
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = Colors.white);
 
     // Bağlantı çizgileri
@@ -435,7 +422,6 @@ class ConnectDotsPainter extends CustomPainter {
       final isConnected = connectedDots.contains(i);
       final isNext = i == nextDotIndex && !isCompleted;
 
-      // Nokta rengi
       Color dotColor;
       if (isConnected) {
         dotColor = Colors.green;
@@ -445,17 +431,23 @@ class ConnectDotsPainter extends CustomPainter {
         dotColor = Colors.grey[400]!;
       }
 
-      // Nokta
-      canvas.drawCircle(dot, 20, Paint()..color = dotColor.withOpacity(0.3));
-      canvas.drawCircle(dot, 12, Paint()..color = dotColor);
+      // Dış çember (nümerik etiket)
+      canvas.drawCircle(
+        dot,
+        isNext ? 18 : 14,
+        Paint()..color = dotColor.withOpacity(0.3),
+      );
 
-      // Sayı
+      // İç çember
+      canvas.drawCircle(dot, isNext ? 14 : 10, Paint()..color = dotColor);
+
+      // Sayı etiketi
       final textPainter = TextPainter(
         text: TextSpan(
           text: '${i + 1}',
           style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontSize: isNext ? 16 : 12,
+            fontWeight: FontWeight.w800,
             color: Colors.white,
           ),
         ),
@@ -466,19 +458,18 @@ class ConnectDotsPainter extends CustomPainter {
         canvas,
         Offset(dot.dx - textPainter.width / 2, dot.dy - textPainter.height / 2),
       );
-    }
 
-    // Sıradaki nokta ipucu
-    if (!isCompleted && nextDotIndex < dots.length) {
-      final nextDot = dots[nextDotIndex];
-      canvas.drawCircle(
-        nextDot,
-        25,
-        Paint()
-          ..color = Colors.orange.withOpacity(0.3)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3,
-      );
+      // Sıradaki nokta animasyonu
+      if (isNext) {
+        canvas.drawCircle(
+          dot,
+          24,
+          Paint()
+            ..color = Colors.orange.withOpacity(0.2)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3,
+        );
+      }
     }
   }
 

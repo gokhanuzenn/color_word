@@ -144,7 +144,6 @@ class _ColoringPageState extends State<ColoringPage>
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
-      // İki parmakla zoom
       final newScale = (_lastScale * details.scale).clamp(0.5, 3.0);
       final newOffset = _lastOffset + (details.focalPoint - _lastFocalPoint);
       setState(() {
@@ -152,11 +151,9 @@ class _ColoringPageState extends State<ColoringPage>
         _offset = newOffset;
       });
     } else if (details.pointerCount == 1 && !_isScaling) {
-      // Tek parmakla çizim
-      if (_stickerMode) {
-        // Sticker modunda çizim yapma
-      } else if (_isTextMode) {
-        // Text modunda çizim yapma
+      if (_stickerMode || _isTextMode) return;
+      if (!_isDrawing) {
+        _startDrawing(details.focalPoint);
       } else {
         _continueDrawing(details.focalPoint);
       }
