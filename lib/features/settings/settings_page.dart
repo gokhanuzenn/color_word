@@ -481,7 +481,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
             // Premium
             NeubrutalButton(
-              label: '⭐ Premium - Reklamları Kaldır',
+              label: '⭐ Premium - Reklamları Kaldır (2.99\$)',
               backgroundColor: Colors.orange,
               width: double.infinity,
               height: 60,
