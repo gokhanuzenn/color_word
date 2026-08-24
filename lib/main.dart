@@ -7,7 +7,7 @@ import 'core/utils/haptic_helper.dart';
 import 'data/services/database_service.dart';
 import 'data/services/score_service.dart';
 import 'data/services/ad_service.dart';
-import 'features/home/home_page.dart';
+import 'features/splash/splash_screen.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -84,7 +84,7 @@ class ColorWordApp extends StatelessWidget {
           child: child!,
         );
       },
-      home: const HomePage(),
+      home: const SplashScreen(),
     );
   }
 }
