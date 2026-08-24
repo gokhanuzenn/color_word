@@ -122,7 +122,8 @@ class _ColoringPageState extends State<ColoringPage>
         _drawingKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return globalPoint;
     final localPoint = renderBox.globalToLocal(globalPoint);
-    // Zoom offset ile düzelt - odak noktasına göre
+    // Zoom durumunda koordinatları dönüştür
+    // Transform: translate然后scale - ters çeviriyoruz
     return Offset(
       (localPoint.dx - _offset.dx) / _scale,
       (localPoint.dy - _offset.dy) / _scale,
@@ -404,8 +405,16 @@ class _ColoringPageState extends State<ColoringPage>
   bool _isScaling = false;
   Offset _lastFocalPoint = Offset.zero;
   double _lastScale = 1.0;
-  Offset _offset = Offset.zero; // Zoom offset (sürükleme için)
+  Offset _offset = Offset.zero;
   Offset _lastOffset = Offset.zero;
+
+  // Zoom sıfırla
+  void _resetZoom() {
+    setState(() {
+      _scale = 1.0;
+      _offset = Offset.zero;
+    });
+  }
 
   void _onScaleStart(ScaleStartDetails details) {
     _lastFocalPoint = details.focalPoint;
@@ -419,8 +428,7 @@ class _ColoringPageState extends State<ColoringPage>
   void _onScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
       // İki parmakla zoom - odak noktasına göre
-      final newScale = (_lastScale * details.scale).clamp(0.5, 3.0);
-      // Odak noktasına göre offset hesapla
+      final newScale = (_lastScale * details.scale).clamp(1.0, 3.0);
       final focalDelta = details.focalPoint - _lastFocalPoint;
       setState(() {
         _scale = newScale;
@@ -428,8 +436,10 @@ class _ColoringPageState extends State<ColoringPage>
       });
       _isScaling = true;
     } else if (details.pointerCount == 1 && _isScaling) {
+      // Zoom bitti, şimdi çizim moduna geç
       _isScaling = false;
     } else if (details.pointerCount == 1 && !_isScaling) {
+      // Tek parmak - çizim
       final localPoint = _globalToLocal(details.focalPoint);
       if (!_isDrawing) {
         _startDrawing(localPoint);
@@ -490,6 +500,8 @@ class _ColoringPageState extends State<ColoringPage>
           _buildSmallButton(icon: Icons.undo, onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty) ? _undo : null),
           _buildSmallButton(icon: Icons.redo, onTap: _redoStack.isNotEmpty ? _redo : null),
           _buildSmallButton(icon: Icons.save, onTap: _strokes.isNotEmpty ? _saveDrawing : null),
+          // Zoom sıfırla butonu
+          _buildSmallButton(icon: Icons.zoom_out_map, onTap: _scale != 1.0 ? _resetZoom : null),
           _buildSmallButton(
             icon: Icons.delete_outline,
             onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty)
