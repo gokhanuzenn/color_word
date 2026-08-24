@@ -83,7 +83,6 @@ class _ColoringPageState extends State<ColoringPage>
   bool _isTextMode = false;
   bool _isDrawing = false;
   DrawStroke? _currentStroke;
-  Offset? _eraserPosition;
 
   bool _stickerMode = false;
   String _selectedSticker = '⭐';
@@ -92,8 +91,12 @@ class _ColoringPageState extends State<ColoringPage>
 
   bool _hasUnsavedChanges = false;
   bool _showSparkle = false;
-  double _scale = 1.0;
+  double _opacity = 1.0;
   late AnimationController _sparkleController;
+
+  // Basit zoom - sadece yakınlaştırma
+  double _scale = 1.0;
+  bool _isScaling = false;
 
   @override
   void initState() {
@@ -121,13 +124,7 @@ class _ColoringPageState extends State<ColoringPage>
     final RenderBox? renderBox =
         _drawingKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return globalPoint;
-    final localPoint = renderBox.globalToLocal(globalPoint);
-    // Zoom durumunda koordinatları dönüştür
-    // Transform: translate然后scale - ters çeviriyoruz
-    return Offset(
-      (localPoint.dx - _offset.dx) / _scale,
-      (localPoint.dy - _offset.dy) / _scale,
-    );
+    return renderBox.globalToLocal(globalPoint);
   }
 
   // === ÇİZİM ===
@@ -161,7 +158,6 @@ class _ColoringPageState extends State<ColoringPage>
       _redoStack.clear();
 
       if (_isErasing) {
-        _eraserPosition = localPoint;
         _eraseAtPoint(localPoint);
       } else {
         _currentStroke = DrawStroke(
@@ -178,7 +174,6 @@ class _ColoringPageState extends State<ColoringPage>
     setState(() {
       _hasUnsavedChanges = true;
       if (_isErasing) {
-        _eraserPosition = localPoint;
         _eraseAtPoint(localPoint);
       } else if (_currentStroke != null) {
         _currentStroke!.points.add(localPoint);
@@ -195,7 +190,6 @@ class _ColoringPageState extends State<ColoringPage>
     setState(() {
       _currentStroke = null;
       _isDrawing = false;
-      _eraserPosition = null;
     });
   }
 
@@ -263,7 +257,6 @@ class _ColoringPageState extends State<ColoringPage>
     final newIndex = _currentPage + delta;
     if (newIndex >= 0 && newIndex < widget.imagePaths.length) {
       _completeDrawing();
-      // Sayfa değiştirirken reklam göster
       AdService.instance.showInterstitialAd(
         onAdClosed: () {
           setState(() {
@@ -272,6 +265,7 @@ class _ColoringPageState extends State<ColoringPage>
             _redoStack.clear();
             _placedStickers.clear();
             _placedTexts.clear();
+            _scale = 1.0;
           });
           HapticHelper.mediumImpact();
         },
@@ -357,16 +351,14 @@ class _ColoringPageState extends State<ColoringPage>
           .map((s) => '${s.color.value},${s.size},${s.points.map((p) => '${p.dx},${p.dy}').join(';')}')
           .join('\n');
       await file.writeAsString(data);
-      print('✅ Kaydedildi: ${file.path}');
       await AchievementService.instance.saveDrawing(file.path);
       HapticHelper.mediumImpact();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('💾 Kaydedildi! ${file.path}'), backgroundColor: Colors.green, duration: const Duration(seconds: 2)),
+          const SnackBar(content: Text('💾 Kaydedildi!'), backgroundColor: Colors.green, duration: Duration(seconds: 2)),
         );
       }
     } catch (e) {
-      print('❌ Kaydetme hatası: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
@@ -401,25 +393,9 @@ class _ColoringPageState extends State<ColoringPage>
     } catch (e) {}
   }
 
-  // === ZOOM DEĞİŞKENLERİ ===
-  bool _isScaling = false;
-  Offset _lastFocalPoint = Offset.zero;
-  double _lastScale = 1.0;
-  Offset _offset = Offset.zero;
-  Offset _lastOffset = Offset.zero;
-
-  // Zoom sıfırla
-  void _resetZoom() {
-    setState(() {
-      _scale = 1.0;
-      _offset = Offset.zero;
-    });
-  }
-
+  // === ZOOM - BASİT VE SAĞLAM ===
+  
   void _onScaleStart(ScaleStartDetails details) {
-    _lastFocalPoint = details.focalPoint;
-    _lastScale = _scale;
-    _lastOffset = _offset;
     if (details.pointerCount == 2) {
       _isScaling = true;
     }
@@ -427,18 +403,18 @@ class _ColoringPageState extends State<ColoringPage>
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
-      // İki parmakla zoom - odak noktasına göre
-      final newScale = (_lastScale * details.scale).clamp(1.0, 3.0);
-      final focalDelta = details.focalPoint - _lastFocalPoint;
+      // İki parmakla zoom - sadece yakınlaştır
+      final newScale = (_scale * details.scale / _scale).clamp(1.0, 3.0);
       setState(() {
         _scale = newScale;
-        _offset = _lastOffset + focalDelta;
       });
       _isScaling = true;
-    } else if (details.pointerCount == 1 && _isScaling) {
-      // Zoom bitti, şimdi çizim moduna geç
-      _isScaling = false;
-    } else if (details.pointerCount == 1 && !_isScaling) {
+    } else if (details.pointerCount == 1) {
+      if (_isScaling) {
+        // Zoom bitti
+        _isScaling = false;
+        return;
+      }
       // Tek parmak - çizim
       final localPoint = _globalToLocal(details.focalPoint);
       if (!_isDrawing) {
@@ -452,6 +428,10 @@ class _ColoringPageState extends State<ColoringPage>
   void _onScaleEnd(ScaleEndDetails details) {
     _isScaling = false;
     _endDrawing();
+  }
+
+  void _resetZoom() {
+    setState(() => _scale = 1.0);
   }
 
   // === ANA SAYFA ===
@@ -478,7 +458,6 @@ class _ColoringPageState extends State<ColoringPage>
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Colors.grey[300]!, width: 1)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Row(
         children: [
@@ -500,8 +479,8 @@ class _ColoringPageState extends State<ColoringPage>
           _buildSmallButton(icon: Icons.undo, onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty) ? _undo : null),
           _buildSmallButton(icon: Icons.redo, onTap: _redoStack.isNotEmpty ? _redo : null),
           _buildSmallButton(icon: Icons.save, onTap: _strokes.isNotEmpty ? _saveDrawing : null),
-          // Zoom sıfırla butonu
-          _buildSmallButton(icon: Icons.zoom_out_map, onTap: _scale != 1.0 ? _resetZoom : null),
+          if (_scale != 1.0)
+            _buildSmallButton(icon: Icons.zoom_out, onTap: _resetZoom),
           _buildSmallButton(
             icon: Icons.delete_outline,
             onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty)
@@ -553,45 +532,39 @@ class _ColoringPageState extends State<ColoringPage>
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey[300]!, width: 1),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 4))],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: ClipRect(
-            child: GestureDetector(
-              onScaleStart: _onScaleStart,
-              onScaleUpdate: _onScaleUpdate,
-              onScaleEnd: _onScaleEnd,
-              child: Stack(
-                children: [
-                  // Zoom ile ölçeklendirme - hem resim hem çizim birlikte
-                  Transform(
-                    alignment: Alignment.topLeft,
-                    transform: Matrix4.identity()
-                      ..translate(_offset.dx, _offset.dy)
-                      ..scale(_scale, _scale),
-                    child: Stack(
-                      children: [
-                        // Beyaz arka plan
-                        Positioned.fill(child: ColoredBox(color: Colors.white)),
-                        // Arka plan resmi
-                        if (!widget.isBlankCanvas)
-                          Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
-                        if (widget.isBlankCanvas)
-                          const Positioned.fill(child: ColoredBox(color: Colors.white)),
-                        // Çizim katmanı - sadece resim alanında
-                        Positioned.fill(
-                          child: ClipRect(
-                            child: CustomPaint(
-                              painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
-                            ),
-                          ),
+          child: GestureDetector(
+            onScaleStart: _onScaleStart,
+            onScaleUpdate: _onScaleUpdate,
+            onScaleEnd: _onScaleEnd,
+            child: Stack(
+              children: [
+                // Zoom ile ölçeklendirme
+                Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()..scale(_scale, _scale),
+                  child: Stack(
+                    children: [
+                      // Beyaz arka plan
+                      Positioned.fill(child: ColoredBox(color: Colors.white)),
+                      // Arka plan resmi
+                      if (!widget.isBlankCanvas)
+                        Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
+                      if (widget.isBlankCanvas)
+                        const Positioned.fill(child: ColoredBox(color: Colors.white)),
+                      // Çizim katmanı
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                ),
 
-                // Sticker'lar
+                // Sticker'lar (zoom dışında - sabit)
                 ..._placedStickers.asMap().entries.map((entry) {
                   final index = entry.key;
                   final sticker = entry.value;
@@ -633,7 +606,7 @@ class _ColoringPageState extends State<ColoringPage>
                   );
                 }),
 
-                // Metinler
+                // Metinler (zoom dışında - sabit)
                 ..._placedTexts.asMap().entries.map((entry) {
                   final index = entry.key;
                   final text = entry.value;
@@ -690,7 +663,6 @@ class _ColoringPageState extends State<ColoringPage>
               ],
             ),
           ),
-          ), // ClipRect kapanışı
         ),
       ),
     );
@@ -701,54 +673,48 @@ class _ColoringPageState extends State<ColoringPage>
       return const ColoredBox(color: Colors.white);
     }
     final path = widget.imagePaths[_currentPage.clamp(0, widget.imagePaths.length - 1)];
-    final file = File(path);
-
+    
     // SVG dosyası mı kontrol et
     if (path.toLowerCase().endsWith('.svg')) {
       if (path.startsWith('assets/')) {
-        return ColoredBox(
-          color: Colors.white,
-          child: SvgPicture.asset(path, fit: BoxFit.cover, width: double.infinity, height: double.infinity),
+        return SvgPicture.asset(
+          path,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+          placeholderBuilder: (context) => const Center(child: CircularProgressIndicator()),
         );
       }
-      return ColoredBox(
-        color: Colors.white,
-        child: SvgPicture.file(file, fit: BoxFit.cover, width: double.infinity, height: double.infinity),
+      return SvgPicture.file(
+        File(path),
+        fit: BoxFit.contain,
+        width: double.infinity,
+        height: double.infinity,
       );
     }
 
-    // PNG/JPG dosyası - errorBuilder ile SVG dene
-    final name = path.split(Platform.pathSeparator).last;
-    final category = widget.categoryName.toLowerCase()
-        .replaceAll(' ', '_')
-        .replaceAll('ğ', 'g').replaceAll('ü', 'u')
-        .replaceAll('ş', 's').replaceAll('ı', 'i')
-        .replaceAll('ö', 'o').replaceAll('ç', 'c');
-
+    // PNG/JPG - önce dene, olmazsa SVG dene
     return Image.asset(
-      'assets/images/$category/$name',
+      path,
       fit: BoxFit.contain,
       width: double.infinity,
       height: double.infinity,
       errorBuilder: (context, error, stackTrace) {
         // PNG yüklenemedi, SVG dene
-        final svgPath = 'assets/images/$category/${name.replaceAll('.png', '.svg')}';
-        return ColoredBox(
-          color: Colors.white,
-          child: SvgPicture.asset(
-            svgPath,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-            placeholderBuilder: (context) => const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-                  SizedBox(height: 8),
-                  Text('Resim yüklenemedi', style: TextStyle(color: Colors.grey)),
-                ],
-              ),
+        final svgPath = path.replaceAll('.png', '.svg');
+        return SvgPicture.asset(
+          svgPath,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+          placeholderBuilder: (context) => const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+                SizedBox(height: 8),
+                Text('Resim yüklenemedi', style: TextStyle(color: Colors.grey)),
+              ],
             ),
           ),
         );
@@ -782,7 +748,6 @@ class _ColoringPageState extends State<ColoringPage>
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, -2))],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -797,15 +762,12 @@ class _ColoringPageState extends State<ColoringPage>
     );
   }
 
-  double _opacity = 1.0;
-
   Widget _buildSizeSlider() {
     final maxSize = _isErasing ? 30.0 : (_selectedTool == 'fırça' ? 20.0 : 12.0);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
         children: [
-          // Boyut slider
           Icon(Icons.circle, size: 8, color: Colors.black),
           Expanded(
             flex: 3,
@@ -816,7 +778,6 @@ class _ColoringPageState extends State<ColoringPage>
           ),
           Icon(Icons.circle, size: 16, color: Colors.black),
           const SizedBox(width: 4),
-          // Önizleme
           Container(
             width: 28, height: 28,
             decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey[300]!)),
@@ -825,7 +786,6 @@ class _ColoringPageState extends State<ColoringPage>
             ),
           ),
           const SizedBox(width: 4),
-          // Şeffaflık slider
           Icon(Icons.opacity, size: 14, color: Colors.grey[600]),
           Expanded(
             flex: 2,
@@ -841,27 +801,16 @@ class _ColoringPageState extends State<ColoringPage>
 
   Widget _buildColorPalette() {
     final colors = [
-      // Temel
       Colors.black, Colors.white,
-      // Griler
       Colors.grey[800]!, Colors.grey[600]!, Colors.grey[400]!, Colors.grey[200]!,
-      // Kırmızı - CANLI
       const Color(0xFFCC0000), const Color(0xFFFF0000), const Color(0xFFFF3333), const Color(0xFFFF6666),
-      // Turuncu - CANLI
       const Color(0xFFCC5500), const Color(0xFFFF6600), const Color(0xFFFF9933), const Color(0xFFFFCC66),
-      // Sarı - CANLI
       const Color(0xFFCCAA00), const Color(0xFFFFDD00), const Color(0xFFFFEE33), const Color(0xFFFFFF66),
-      // Yeşil - CANLI
       const Color(0xFF006600), const Color(0xFF009900), const Color(0xFF00CC00), const Color(0xFF33FF33),
-      // Mavi - CANLI
       const Color(0xFF0000CC), const Color(0xFF0066FF), const Color(0xFF0099FF), const Color(0xFF33CCFF),
-      // Mor - CANLI
       const Color(0xFF660099), const Color(0xFF9900CC), const Color(0xFFCC33FF), const Color(0xFFDD66FF),
-      // Pembe - CANLI
       const Color(0xFFCC0066), const Color(0xFFFF0066), const Color(0xFFFF3399), const Color(0xFFFF66B2),
-      // Kahverengi
       const Color(0xFF331900), const Color(0xFF663300), const Color(0xFF996633), const Color(0xFFCC9966),
-      // Ekstra
       const Color(0xFF006666), const Color(0xFF009999), const Color(0xFF00CCCC), const Color(0xFF66FFFF),
     ];
     return Container(
@@ -893,7 +842,6 @@ class _ColoringPageState extends State<ColoringPage>
                 color: color,
                 shape: BoxShape.circle,
                 border: Border.all(color: isSelected ? Colors.black : Colors.grey[300]!, width: isSelected ? 3 : 1),
-                boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 6, offset: const Offset(0, 3))] : [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 2, offset: const Offset(0, 1))],
               ),
             ),
           );
@@ -943,7 +891,6 @@ class _ColoringPageState extends State<ColoringPage>
           color: isActive ? Colors.black : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.black, width: 2),
-          boxShadow: isActive ? [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(2, 2))] : [],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -958,7 +905,6 @@ class _ColoringPageState extends State<ColoringPage>
   }
 
   Widget _buildSubToolsMenu() {
-    // Sticker menüsü
     if (_stickerMode) {
       final stickers = ['⭐', '❤️', '🌈', '🦄', '🎈', '🎵', '🌸', '🦋', '🎨', '🍭', '🌺', '✨', '🎉', '🐱', '🐶', '🐰'];
       return Container(
@@ -992,7 +938,6 @@ class _ColoringPageState extends State<ColoringPage>
       );
     }
 
-    // Kalem/Fırça varyasyonları
     final subTools = _selectedTool == 'kalem' ? ['HB', '2B', '4B', '6B', '8B'] : ['Normal', 'Sulu Boya', 'Pastel', 'Yağlı Boya', 'Kuru Boya'];
     return Container(
       height: 50,
