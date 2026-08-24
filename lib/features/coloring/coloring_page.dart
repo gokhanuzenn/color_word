@@ -94,9 +94,10 @@ class _ColoringPageState extends State<ColoringPage>
   double _opacity = 1.0;
   late AnimationController _sparkleController;
 
-  // Basit zoom - sadece yakınlaştırma
+  // Zoom ve Pan
   double _scale = 1.0;
-  bool _isScaling = false;
+  Offset _offset = Offset.zero;
+  bool _isPanning = false; // Pan modu aktif mi?
 
   @override
   void initState() {
@@ -119,25 +120,30 @@ class _ColoringPageState extends State<ColoringPage>
     super.dispose();
   }
 
-  // Global koordinatları yerel koordinatlara çevir
-  Offset _globalToLocal(Offset globalPoint) {
+  /// Ekran koordinatlarını çizim koordinatlarına çevir
+  Offset _screenToDrawing(Offset screenPoint) {
     final RenderBox? renderBox =
         _drawingKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return globalPoint;
-    return renderBox.globalToLocal(globalPoint);
+    if (renderBox == null) return screenPoint;
+    final localPoint = renderBox.globalToLocal(screenPoint);
+    // Zoom ve pan ters çevir
+    return Offset(
+      (localPoint.dx - _offset.dx) / _scale,
+      (localPoint.dy - _offset.dy) / _scale,
+    );
   }
 
   // === ÇİZİM ===
 
-  void _startDrawing(Offset localPoint) {
-    if (_isScaling) return;
+  void _startDrawing(Offset drawingPoint) {
+    if (_isPanning) return;
 
     if (_stickerMode) {
       setState(() {
         _placedStickers.add(StickerItem(
           emoji: _selectedSticker,
-          x: localPoint.dx,
-          y: localPoint.dy,
+          x: drawingPoint.dx,
+          y: drawingPoint.dy,
         ));
         _hasUnsavedChanges = true;
         _stickerMode = false;
@@ -149,7 +155,7 @@ class _ColoringPageState extends State<ColoringPage>
     }
 
     if (_isTextMode) {
-      _showTextInputDialog(localPoint);
+      _showTextInputDialog(drawingPoint);
       return;
     }
 
@@ -158,25 +164,25 @@ class _ColoringPageState extends State<ColoringPage>
       _redoStack.clear();
 
       if (_isErasing) {
-        _eraseAtPoint(localPoint);
+        _eraseAtPoint(drawingPoint);
       } else {
         _currentStroke = DrawStroke(
           color: _selectedColor.withOpacity(_opacity),
           size: _selectedTool == 'fırça' ? _brushSize * 1.5 : _brushSize,
-          points: [localPoint],
+          points: [drawingPoint],
         );
       }
     });
   }
 
-  void _continueDrawing(Offset localPoint) {
+  void _continueDrawing(Offset drawingPoint) {
     if (!_isDrawing) return;
     setState(() {
       _hasUnsavedChanges = true;
       if (_isErasing) {
-        _eraseAtPoint(localPoint);
+        _eraseAtPoint(drawingPoint);
       } else if (_currentStroke != null) {
-        _currentStroke!.points.add(localPoint);
+        _currentStroke!.points.add(drawingPoint);
       }
     });
   }
@@ -266,6 +272,7 @@ class _ColoringPageState extends State<ColoringPage>
             _placedStickers.clear();
             _placedTexts.clear();
             _scale = 1.0;
+            _offset = Offset.zero;
           });
           HapticHelper.mediumImpact();
         },
@@ -393,45 +400,75 @@ class _ColoringPageState extends State<ColoringPage>
     } catch (e) {}
   }
 
-  // === ZOOM - BASİT VE SAĞLAM ===
-  
+  // === ZOOM + PAN + ÇİZİM ===
+
+  // İki parmakla son durum
+  double _lastScale = 1.0;
+  Offset _lastFocalPoint = Offset.zero;
+  Offset _lastOffset = Offset.zero;
+  bool _wasMultiTouch = false;
+
   void _onScaleStart(ScaleStartDetails details) {
+    _lastFocalPoint = details.focalPoint;
+    _lastScale = _scale;
+    _lastOffset = _offset;
+
     if (details.pointerCount == 2) {
-      _isScaling = true;
+      _wasMultiTouch = true;
     }
   }
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
-      // İki parmakla zoom - sadece yakınlaştır
-      final newScale = (_scale * details.scale / _scale).clamp(1.0, 3.0);
+      // === İKİ PARMAK: Zoom + Pan ===
+      final newScale = (_lastScale * details.scale).clamp(1.0, 4.0);
+      final focalDelta = details.focalPoint - _lastFocalPoint;
       setState(() {
         _scale = newScale;
+        _offset = _lastOffset + focalDelta;
       });
-      _isScaling = true;
     } else if (details.pointerCount == 1) {
-      if (_isScaling) {
-        // Zoom bitti
-        _isScaling = false;
+      if (_wasMultiTouch) {
+        // Çoklu dokunmadan tekli dokunmaya geçiş - çizime başlama
+        _wasMultiTouch = false;
         return;
       }
-      // Tek parmak - çizim
-      final localPoint = _globalToLocal(details.focalPoint);
-      if (!_isDrawing) {
-        _startDrawing(localPoint);
+
+      if (_isPanning && _scale > 1.0) {
+        // === PAN MODU: Tek parmakla kaydır ===
+        final delta = details.focalPoint - _lastFocalPoint;
+        setState(() {
+          _offset = _offset + delta;
+        });
+        _lastFocalPoint = details.focalPoint;
       } else {
-        _continueDrawing(localPoint);
+        // === ÇİZİM MODU: Tek parmakla çiz ===
+        final drawingPoint = _screenToDrawing(details.focalPoint);
+        if (!_isDrawing) {
+          _startDrawing(drawingPoint);
+        } else {
+          _continueDrawing(drawingPoint);
+        }
       }
     }
   }
 
   void _onScaleEnd(ScaleEndDetails details) {
-    _isScaling = false;
+    _wasMultiTouch = false;
     _endDrawing();
   }
 
   void _resetZoom() {
-    setState(() => _scale = 1.0);
+    setState(() {
+      _scale = 1.0;
+      _offset = Offset.zero;
+      _isPanning = false;
+    });
+  }
+
+  void _togglePanMode() {
+    setState(() => _isPanning = !_isPanning);
+    HapticHelper.lightImpact();
   }
 
   // === ANA SAYFA ===
@@ -454,7 +491,7 @@ class _ColoringPageState extends State<ColoringPage>
 
   Widget _buildTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Colors.grey[300]!, width: 1)),
@@ -471,16 +508,23 @@ class _ColoringPageState extends State<ColoringPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${widget.categoryIcon} ${widget.categoryName}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-                Text('Sayfa ${_currentPage + 1} / ${widget.imagePaths.isEmpty ? 1 : widget.imagePaths.length}', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                Text('${widget.categoryIcon} ${widget.categoryName}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                Text('Sayfa ${_currentPage + 1}/${widget.imagePaths.length}', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
               ],
             ),
           ),
           _buildSmallButton(icon: Icons.undo, onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty) ? _undo : null),
           _buildSmallButton(icon: Icons.redo, onTap: _redoStack.isNotEmpty ? _redo : null),
           _buildSmallButton(icon: Icons.save, onTap: _strokes.isNotEmpty ? _saveDrawing : null),
-          if (_scale != 1.0)
+          // Zoom durumunda ek butonlar
+          if (_scale > 1.0) ...[
+            _buildSmallButton(
+              icon: _isPanning ? Icons.pan_tool : Icons.draw,
+              onTap: _togglePanMode,
+              isActive: _isPanning,
+            ),
             _buildSmallButton(icon: Icons.zoom_out, onTap: _resetZoom),
+          ],
           _buildSmallButton(
             icon: Icons.delete_outline,
             onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty)
@@ -504,19 +548,19 @@ class _ColoringPageState extends State<ColoringPage>
     );
   }
 
-  Widget _buildSmallButton({required IconData icon, VoidCallback? onTap}) {
-    final isActive = onTap != null;
+  Widget _buildSmallButton({required IconData icon, VoidCallback? onTap, bool isActive = false}) {
+    final enabled = onTap != null;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 32, height: 32,
-        margin: const EdgeInsets.symmetric(horizontal: 2),
+        width: 30, height: 30,
+        margin: const EdgeInsets.symmetric(horizontal: 1),
         decoration: BoxDecoration(
-          color: isActive ? Colors.white : Colors.grey[100],
+          color: isActive ? Colors.blue : (enabled ? Colors.white : Colors.grey[100]),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: isActive ? Colors.grey[400]! : Colors.grey[200]!, width: 1),
+          border: Border.all(color: isActive ? Colors.blue : (enabled ? Colors.grey[400]! : Colors.grey[200]!), width: 1),
         ),
-        child: Icon(icon, size: 16, color: isActive ? Colors.black : Colors.grey[400]),
+        child: Icon(icon, size: 16, color: isActive ? Colors.white : (enabled ? Colors.black : Colors.grey[400])),
       ),
     );
   }
@@ -541,10 +585,12 @@ class _ColoringPageState extends State<ColoringPage>
             onScaleEnd: _onScaleEnd,
             child: Stack(
               children: [
-                // Zoom ile ölçeklendirme
+                // Zoom + Pan ile ölçeklendirme
                 Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.identity()..scale(_scale, _scale),
+                  alignment: Alignment.topLeft,
+                  transform: Matrix4.identity()
+                    ..translate(_offset.dx, _offset.dy)
+                    ..scale(_scale, _scale),
                   child: Stack(
                     children: [
                       // Beyaz arka plan
@@ -564,21 +610,21 @@ class _ColoringPageState extends State<ColoringPage>
                   ),
                 ),
 
-                // Sticker'lar (zoom dışında - sabit)
+                // Sticker'lar
                 ..._placedStickers.asMap().entries.map((entry) {
                   final index = entry.key;
                   final sticker = entry.value;
                   return Positioned(
-                    left: sticker.x - 24,
-                    top: sticker.y - 24,
+                    left: sticker.x * _scale + _offset.dx - 24,
+                    top: sticker.y * _scale + _offset.dy - 24,
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
                         GestureDetector(
                           onPanUpdate: (details) {
                             setState(() {
-                              sticker.x += details.delta.dx;
-                              sticker.y += details.delta.dy;
+                              sticker.x += details.delta.dx / _scale;
+                              sticker.y += details.delta.dy / _scale;
                             });
                           },
                           child: Text(sticker.emoji, style: const TextStyle(fontSize: 40)),
@@ -606,21 +652,21 @@ class _ColoringPageState extends State<ColoringPage>
                   );
                 }),
 
-                // Metinler (zoom dışında - sabit)
+                // Metinler
                 ..._placedTexts.asMap().entries.map((entry) {
                   final index = entry.key;
                   final text = entry.value;
                   return Positioned(
-                    left: text.x,
-                    top: text.y,
+                    left: text.x * _scale + _offset.dx,
+                    top: text.y * _scale + _offset.dy,
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
                         GestureDetector(
                           onPanUpdate: (details) {
                             setState(() {
-                              text.x += details.delta.dx;
-                              text.y += details.delta.dy;
+                              text.x += details.delta.dx / _scale;
+                              text.y += details.delta.dy / _scale;
                             });
                           },
                           child: Container(
@@ -660,6 +706,23 @@ class _ColoringPageState extends State<ColoringPage>
 
                 // Parıltı efekti
                 if (_showSparkle) ..._buildSparkles(),
+
+                // Zoom bilgisi (sol alt köşe)
+                if (_scale > 1.0)
+                  Positioned(
+                    left: 8, bottom: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${(_scale * 100).toInt()}% • ${_isPanning ? 'Kaydır' : 'Çiz'}',
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -673,7 +736,7 @@ class _ColoringPageState extends State<ColoringPage>
       return const ColoredBox(color: Colors.white);
     }
     final path = widget.imagePaths[_currentPage.clamp(0, widget.imagePaths.length - 1)];
-    
+
     // SVG dosyası mı kontrol et
     if (path.toLowerCase().endsWith('.svg')) {
       if (path.startsWith('assets/')) {
@@ -693,14 +756,13 @@ class _ColoringPageState extends State<ColoringPage>
       );
     }
 
-    // PNG/JPG - önce dene, olmazsa SVG dene
+    // PNG/JPG
     return Image.asset(
       path,
       fit: BoxFit.contain,
       width: double.infinity,
       height: double.infinity,
       errorBuilder: (context, error, stackTrace) {
-        // PNG yüklenemedi, SVG dene
         final svgPath = path.replaceAll('.png', '.svg');
         return SvgPicture.asset(
           svgPath,
