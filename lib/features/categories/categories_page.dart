@@ -50,6 +50,15 @@ class CategoriesPage extends StatelessWidget {
     CategoryItem(id: 'uzay', name: 'Uzay', icon: '🚀', color: Color(0xFF3F51B5), imageCount: 26),
     CategoryItem(id: 'vahsi_dostlar', name: 'Vahşi Dostlar', icon: '🦁', color: Color(0xFF795548), imageCount: 11),
     CategoryItem(id: 'yiyecekler', name: 'Yiyecekler', icon: '🍽️', color: Color(0xFFF44336), imageCount: 41),
+    // Yeni eklenen kategoriler
+    CategoryItem(id: 'mandalalar', name: 'Mandalalar', icon: '🔮', color: Color(0xFF7B1FA2), imageCount: 0),
+    CategoryItem(id: 'cicekler', name: 'Çiçekler', icon: '🌸', color: Color(0xFFE91E63), imageCount: 0),
+    CategoryItem(id: 'prensesler', name: 'Prensesler', icon: '👑', color: Color(0xFFF06292), imageCount: 0),
+    CategoryItem(id: 'masal_kahramanlari', name: 'Masal Kahramanları', icon: '🧚', color: Color(0xFF7C4DFF), imageCount: 0),
+    CategoryItem(id: 'spor', name: 'Spor', icon: '⚽', color: Color(0xFF43A047), imageCount: 0),
+    CategoryItem(id: 'muzik_aletleri', name: 'Müzik Aletleri', icon: '🎸', color: Color(0xFFFF6F00), imageCount: 0),
+    CategoryItem(id: 'manzaralar', name: 'Manzaralar', icon: '🏔️', color: Color(0xFF00897B), imageCount: 0),
+    CategoryItem(id: 'bahceler', name: 'Bahçeler', icon: '🌻', color: Color(0xFF689F38), imageCount: 0),
     CategoryItem(id: 'custom', name: 'Kendi Resmini Seç', icon: '🖼️', color: Color(0xFF9C27B0)),
     CategoryItem(id: 'blank', name: 'Boş Defter', icon: '📓', color: Color(0xFFFFF9C4)),
   ];

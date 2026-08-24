@@ -88,6 +88,14 @@ flutter:
     - assets/images/uzay/
     - assets/images/vahsi_dostlar/
     - assets/images/yiyecekler/
+    - assets/images/mandalalar/
+    - assets/images/cicekler/
+    - assets/images/prensesler/
+    - assets/images/masal_kahramanlari/
+    - assets/images/spor/
+    - assets/images/muzik_aletleri/
+    - assets/images/manzaralar/
+    - assets/images/bahceler/
     - assets/audio/
     - assets/fonts/
     - lib/l10n/

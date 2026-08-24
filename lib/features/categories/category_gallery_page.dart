@@ -32,6 +32,15 @@ const Map<String, String> _categoryFolderMap = {
   'Uzay': 'uzay',
   'Vahşi Dostlar': 'vahsi_dostlar',
   'Yiyecekler': 'yiyecekler',
+  // Yeni eklenen kategoriler
+  'Mandalalar': 'mandalalar',
+  'Çiçekler': 'cicekler',
+  'Prensesler': 'prensesler',
+  'Masal Kahramanları': 'masal_kahramanlari',
+  'Spor': 'spor',
+  'Müzik Aletleri': 'muzik_aletleri',
+  'Manzaralar': 'manzaralar',
+  'Bahçeler': 'bahceler',
 };
 
 /// Her kategorideki resim sayıları (güncel)
@@ -57,6 +66,15 @@ const Map<String, int> _categoryImageCounts = {
   'uzay': 26,
   'vahsi_dostlar': 11,
   'yiyecekler': 41,
+  // Yeni eklenen kategoriler (henüz resim yok)
+  'mandalalar': 0,
+  'cicekler': 0,
+  'prensesler': 0,
+  'masal_kahramanlari': 0,
+  'spor': 0,
+  'muzik_aletleri': 0,
+  'manzaralar': 0,
+  'bahceler': 0,
 };
 
 /// Kategori resim galerisi sayfası
