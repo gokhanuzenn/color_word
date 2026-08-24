@@ -122,16 +122,11 @@ class _ColoringPageState extends State<ColoringPage>
         _drawingKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return globalPoint;
     final localPoint = renderBox.globalToLocal(globalPoint);
-    // Zoom oranına göre düzelt
-    if (_scale != 1.0) {
-      final centerX = renderBox.size.width / 2;
-      final centerY = renderBox.size.height / 2;
-      return Offset(
-        centerX + (localPoint.dx - centerX) / _scale,
-        centerY + (localPoint.dy - centerY) / _scale,
-      );
-    }
-    return localPoint;
+    // Zoom offset ile düzelt - odak noktasına göre
+    return Offset(
+      (localPoint.dx - _offset.dx) / _scale,
+      (localPoint.dy - _offset.dy) / _scale,
+    );
   }
 
   // === ÇİZİM ===
@@ -409,10 +404,13 @@ class _ColoringPageState extends State<ColoringPage>
   bool _isScaling = false;
   Offset _lastFocalPoint = Offset.zero;
   double _lastScale = 1.0;
+  Offset _offset = Offset.zero; // Zoom offset (sürükleme için)
+  Offset _lastOffset = Offset.zero;
 
   void _onScaleStart(ScaleStartDetails details) {
     _lastFocalPoint = details.focalPoint;
     _lastScale = _scale;
+    _lastOffset = _offset;
     if (details.pointerCount == 2) {
       _isScaling = true;
     }
@@ -420,10 +418,13 @@ class _ColoringPageState extends State<ColoringPage>
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
-      // İki parmakla zoom
+      // İki parmakla zoom - odak noktasına göre
       final newScale = (_lastScale * details.scale).clamp(0.5, 3.0);
+      // Odak noktasına göre offset hesapla
+      final focalDelta = details.focalPoint - _lastFocalPoint;
       setState(() {
         _scale = newScale;
+        _offset = _lastOffset + focalDelta;
       });
       _isScaling = true;
     } else if (details.pointerCount == 1 && _isScaling) {
@@ -553,8 +554,10 @@ class _ColoringPageState extends State<ColoringPage>
                 children: [
                   // Zoom ile ölçeklendirme - hem resim hem çizim birlikte
                   Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.identity()..scale(_scale, _scale),
+                    alignment: Alignment.topLeft,
+                    transform: Matrix4.identity()
+                      ..translate(_offset.dx, _offset.dy)
+                      ..scale(_scale, _scale),
                     child: Stack(
                       children: [
                         // Beyaz arka plan
@@ -564,10 +567,12 @@ class _ColoringPageState extends State<ColoringPage>
                           Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
                         if (widget.isBlankCanvas)
                           const Positioned.fill(child: ColoredBox(color: Colors.white)),
-                        // Çizim katmanı (resimle birlikte)
+                        // Çizim katmanı - sadece resim alanında
                         Positioned.fill(
-                          child: CustomPaint(
-                            painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
+                          child: ClipRect(
+                            child: CustomPaint(
+                              painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
+                            ),
                           ),
                         ),
                       ],

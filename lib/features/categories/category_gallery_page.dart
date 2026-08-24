@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../coloring/coloring_page.dart';
@@ -91,10 +93,10 @@ class _CategoryGalleryPageState extends State<CategoryGalleryPage> {
     _imagePaths = [];
 
     for (int i = 1; i <= imageCount; i++) {
-      // Farklı isim formatlarını dene: category_1, category_001, category_0
-      String path1 = 'assets/images/$folderName/${folderName}_$i.png';
-      String path2 = 'assets/images/$folderName/${folderName}_${i.toString().padLeft(3, '0')}.png';
-      _imagePaths.add(path1); // Varsayılan format, hata olursa asset errorBuilder düşecek
+      // PNG ve SVG formatlarını dene
+      String pngPath = 'assets/images/$folderName/${folderName}_$i.png';
+      String svgPath = 'assets/images/$folderName/${folderName}_$i.svg';
+      _imagePaths.add(pngPath); // Varsayılan PNG, errorBuilder SVG'ye düşecek
     }
 
     setState(() => _isLoading = false);
@@ -218,26 +220,42 @@ class _CategoryGalleryPageState extends State<CategoryGalleryPage> {
     );
   }
 
-  /// Her iki formatı da deneyerek resim göster
+  /// Her iki formatı da deneyerek resim göster (PNG + SVG)
   Widget _buildImageWithIndex(int index) {
     final folderName = _categoryFolderMap[widget.categoryName] ?? 'ciftlik';
     final imageIndex = index + 1;
 
-    // Her iki formatı da dene
-    String path3h = 'assets/images/$folderName/${folderName}_${imageIndex.toString().padLeft(3, '0')}.png';
-    String path12h = 'assets/images/$folderName/${folderName}_$imageIndex.png';
+    // PNG formatları
+    String pngPath3h = 'assets/images/$folderName/${folderName}_${imageIndex.toString().padLeft(3, '0')}.png';
+    String pngPath12h = 'assets/images/$folderName/${folderName}_$imageIndex.png';
+    // SVG formatları
+    String svgPath3h = 'assets/images/$folderName/${folderName}_${imageIndex.toString().padLeft(3, '0')}.svg';
+    String svgPath12h = 'assets/images/$folderName/${folderName}_$imageIndex.svg';
 
-    // Önce _001 formatını dene, bulamazsan _1 formatını dene
+    // Önce _001 PNG, sonra _1 PNG, sonra _001 SVG, sonra _1 SVG, en sonda ikon
     return Image.asset(
-      path3h,
+      pngPath3h,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) {
         return Image.asset(
-          path12h,
+          pngPath12h,
           fit: BoxFit.contain,
           errorBuilder: (context, error2, stackTrace2) {
-            return Center(
-              child: Icon(Icons.image, size: 32, color: widget.categoryColor.withOpacity(0.5)),
+            // SVG dene
+            return SvgPicture.asset(
+              svgPath3h,
+              fit: BoxFit.contain,
+              placeholderBuilder: (context) {
+                return SvgPicture.asset(
+                  svgPath12h,
+                  fit: BoxFit.contain,
+                  placeholderBuilder: (context2) {
+                    return Center(
+                      child: Icon(Icons.image, size: 32, color: widget.categoryColor.withOpacity(0.5)),
+                    );
+                  },
+                );
+              },
             );
           },
         );

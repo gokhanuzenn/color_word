@@ -10,14 +10,20 @@ class AppAudioService {
   final AudioPlayer _bgPlayer = AudioPlayer();
   final AudioPlayer _sfxPlayer = AudioPlayer();
   bool _isMuted = false;
+  bool _isInitialized = false;
 
   /// Servisi başlat
   Future<void> init() async {
-    _isMuted = DatabaseService.instance.isMuted();
-
-    // Arka plan müziği ayarları
-    await _bgPlayer.setReleaseMode(ReleaseMode.loop);
-    await _bgPlayer.setVolume(0.3);
+    if (_isInitialized) return;
+    try {
+      _isMuted = DatabaseService.instance.isMuted();
+      await _bgPlayer.setReleaseMode(ReleaseMode.loop);
+      await _bgPlayer.setVolume(0.3);
+      _isInitialized = true;
+    } catch (e) {
+      print('⚠️ Audio init hatası: $e');
+      _isInitialized = true;
+    }
   }
 
   /// Sessizlik durumunu getir
@@ -26,70 +32,83 @@ class AppAudioService {
   /// Sessizliği aç/kapat
   Future<void> toggleMute() async {
     _isMuted = !_isMuted;
-    await DatabaseService.instance.setMuted(_isMuted);
+    try {
+      await DatabaseService.instance.setMuted(_isMuted);
+    } catch (_) {}
 
     if (_isMuted) {
-      await _bgPlayer.pause();
-      await _sfxPlayer.stop();
+      try {
+        await _bgPlayer.pause();
+        await _sfxPlayer.stop();
+      } catch (_) {}
     }
   }
 
   /// Sessizliği ayarla
   Future<void> setMuted(bool muted) async {
     _isMuted = muted;
-    await DatabaseService.instance.setMuted(muted);
+    try {
+      await DatabaseService.instance.setMuted(muted);
+    } catch (_) {}
 
     if (_isMuted) {
-      await _bgPlayer.pause();
+      try {
+        await _bgPlayer.pause();
+      } catch (_) {}
+    }
+  }
+
+  /// Güvenli ses çalma
+  Future<void> _safePlay(String asset, {double volume = 0.5}) async {
+    if (_isMuted) return;
+    try {
+      await _sfxPlayer.stop();
+      await _sfxPlayer.play(AssetSource(asset), volume: volume);
+    } catch (e) {
+      // Ses dosyası yoksa sessizce devam et
     }
   }
 
   /// Dokunma sesi çal
   Future<void> playTapSound() async {
-    if (_isMuted) return;
-    await _sfxPlayer.play(AssetSource('audio/tap.mp3'), volume: 0.5);
+    await _safePlay('audio/tap.wav', volume: 0.3);
   }
 
   /// Başlama sesi çal
   Future<void> playSuccessSound() async {
-    if (_isMuted) return;
-    await _sfxPlayer.play(AssetSource('audio/success.mp3'), volume: 0.6);
+    await _safePlay('audio/success.wav', volume: 0.5);
   }
 
   /// Kelime keşfetme sesi çal
   Future<void> playWordDiscoverySound() async {
-    if (_isMuted) return;
-    await _sfxPlayer.play(AssetSource('audio/discovery.mp3'), volume: 0.7);
+    await _safePlay('audio/discovery.wav', volume: 0.4);
   }
 
   /// Boyama sesi çal
   Future<void> playColoringSound() async {
-    if (_isMuted) return;
-    await _sfxPlayer.play(AssetSource('audio/coloring.mp3'), volume: 0.4);
+    await _safePlay('audio/coloring.wav', volume: 0.2);
   }
 
   /// Harf sesi çal
   Future<void> playLetterSound(String letter) async {
-    if (_isMuted) return;
-    // Harf dosyası yoksa tapsound kullan
-    try {
-      await _sfxPlayer.play(AssetSource('audio/letters/$letter.mp3'));
-    } catch (_) {
-      await playTapSound();
-    }
+    await _safePlay('audio/tap.wav', volume: 0.3);
   }
 
   /// Hata sesi çal
   Future<void> playErrorSound() async {
-    if (_isMuted) return;
-    await _sfxPlayer.play(AssetSource('audio/error.mp3'), volume: 0.5);
+    await _safePlay('audio/error.wav', volume: 0.4);
+  }
+
+  /// Yıldız sesi çal
+  Future<void> playStarSound() async {
+    await _safePlay('audio/star.wav', volume: 0.5);
   }
 
   /// Arka plan müziğini başlat
   Future<void> startBackgroundMusic() async {
     if (_isMuted) return;
     try {
-      await _bgPlayer.play(AssetSource('audio/background.mp3'));
+      await _bgPlayer.play(AssetSource('audio/background.wav'));
     } catch (_) {
       // Müzik dosyası yoksa sessiz devam et
     }
@@ -97,12 +116,16 @@ class AppAudioService {
 
   /// Arka plan müziğini durdur
   Future<void> stopBackgroundMusic() async {
-    await _bgPlayer.stop();
+    try {
+      await _bgPlayer.stop();
+    } catch (_) {}
   }
 
   /// Kaynakları temizle
   void dispose() {
-    _bgPlayer.dispose();
-    _sfxPlayer.dispose();
+    try {
+      _bgPlayer.dispose();
+      _sfxPlayer.dispose();
+    } catch (_) {}
   }
 }
