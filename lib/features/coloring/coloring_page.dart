@@ -97,7 +97,11 @@ class _ColoringPageState extends State<ColoringPage>
   // Zoom ve Pan
   double _scale = 1.0;
   Offset _offset = Offset.zero;
-  bool _isPanning = false; // Pan modu aktif mi?
+  bool _isPanning = false;
+  double _lastScale = 1.0;
+  Offset _lastFocalPoint = Offset.zero;
+  Offset _lastOffset = Offset.zero;
+  bool _wasMultiTouch = false;
 
   @override
   void initState() {
@@ -126,7 +130,6 @@ class _ColoringPageState extends State<ColoringPage>
         _drawingKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return screenPoint;
     final localPoint = renderBox.globalToLocal(screenPoint);
-    // Zoom ve pan ters çevir
     return Offset(
       (localPoint.dx - _offset.dx) / _scale,
       (localPoint.dy - _offset.dy) / _scale,
@@ -164,6 +167,7 @@ class _ColoringPageState extends State<ColoringPage>
       _redoStack.clear();
 
       if (_isErasing) {
+        // Silgi: sadece kullanıcının çizdiği çizgileri sil
         _eraseAtPoint(drawingPoint);
       } else {
         _currentStroke = DrawStroke(
@@ -200,6 +204,8 @@ class _ColoringPageState extends State<ColoringPage>
   }
 
   void _eraseAtPoint(Offset eraserCenter) {
+    // Silgi sadece kullanıcının çizdiği çizgileri siler
+    // isEraser=false olan stroke'ları hedef alır
     final eraserRadius = _brushSize * 3;
     final newStrokes = <DrawStroke>[];
     for (final stroke in _strokes) {
@@ -402,12 +408,6 @@ class _ColoringPageState extends State<ColoringPage>
 
   // === ZOOM + PAN + ÇİZİM ===
 
-  // İki parmakla son durum
-  double _lastScale = 1.0;
-  Offset _lastFocalPoint = Offset.zero;
-  Offset _lastOffset = Offset.zero;
-  bool _wasMultiTouch = false;
-
   void _onScaleStart(ScaleStartDetails details) {
     _lastFocalPoint = details.focalPoint;
     _lastScale = _scale;
@@ -420,7 +420,6 @@ class _ColoringPageState extends State<ColoringPage>
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
-      // === İKİ PARMAK: Zoom + Pan ===
       final newScale = (_lastScale * details.scale).clamp(1.0, 4.0);
       final focalDelta = details.focalPoint - _lastFocalPoint;
       setState(() {
@@ -429,20 +428,18 @@ class _ColoringPageState extends State<ColoringPage>
       });
     } else if (details.pointerCount == 1) {
       if (_wasMultiTouch) {
-        // Çoklu dokunmadan tekli dokunmaya geçiş - çizime başlama
         _wasMultiTouch = false;
+        _lastFocalPoint = details.focalPoint;
         return;
       }
 
       if (_isPanning && _scale > 1.0) {
-        // === PAN MODU: Tek parmakla kaydır ===
         final delta = details.focalPoint - _lastFocalPoint;
         setState(() {
           _offset = _offset + delta;
         });
         _lastFocalPoint = details.focalPoint;
       } else {
-        // === ÇİZİM MODU: Tek parmakla çiz ===
         final drawingPoint = _screenToDrawing(details.focalPoint);
         if (!_isDrawing) {
           _startDrawing(drawingPoint);
@@ -516,7 +513,6 @@ class _ColoringPageState extends State<ColoringPage>
           _buildSmallButton(icon: Icons.undo, onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty) ? _undo : null),
           _buildSmallButton(icon: Icons.redo, onTap: _redoStack.isNotEmpty ? _redo : null),
           _buildSmallButton(icon: Icons.save, onTap: _strokes.isNotEmpty ? _saveDrawing : null),
-          // Zoom durumunda ek butonlar
           if (_scale > 1.0) ...[
             _buildSmallButton(
               icon: _isPanning ? Icons.pan_tool : Icons.draw,
@@ -600,7 +596,7 @@ class _ColoringPageState extends State<ColoringPage>
                         Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
                       if (widget.isBlankCanvas)
                         const Positioned.fill(child: ColoredBox(color: Colors.white)),
-                      // Çizim katmanı
+                      // Çizim katmanı - Transform içinde
                       Positioned.fill(
                         child: CustomPaint(
                           painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
@@ -610,7 +606,7 @@ class _ColoringPageState extends State<ColoringPage>
                   ),
                 ),
 
-                // Sticker'lar
+                // Sticker'lar (Transform dışında, konumları hesaplanmış)
                 ..._placedStickers.asMap().entries.map((entry) {
                   final index = entry.key;
                   final sticker = entry.value;
@@ -707,7 +703,7 @@ class _ColoringPageState extends State<ColoringPage>
                 // Parıltı efekti
                 if (_showSparkle) ..._buildSparkles(),
 
-                // Zoom bilgisi (sol alt köşe)
+                // Zoom bilgisi
                 if (_scale > 1.0)
                   Positioned(
                     left: 8, bottom: 8,
@@ -737,7 +733,6 @@ class _ColoringPageState extends State<ColoringPage>
     }
     final path = widget.imagePaths[_currentPage.clamp(0, widget.imagePaths.length - 1)];
 
-    // SVG dosyası mı kontrol et
     if (path.toLowerCase().endsWith('.svg')) {
       if (path.startsWith('assets/')) {
         return SvgPicture.asset(
@@ -756,28 +751,20 @@ class _ColoringPageState extends State<ColoringPage>
       );
     }
 
-    // PNG/JPG
     return Image.asset(
       path,
       fit: BoxFit.contain,
       width: double.infinity,
       height: double.infinity,
       errorBuilder: (context, error, stackTrace) {
-        final svgPath = path.replaceAll('.png', '.svg');
-        return SvgPicture.asset(
-          svgPath,
-          fit: BoxFit.contain,
-          width: double.infinity,
-          height: double.infinity,
-          placeholderBuilder: (context) => const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
-                SizedBox(height: 8),
-                Text('Resim yüklenemedi', style: TextStyle(color: Colors.grey)),
-              ],
-            ),
+        return const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+              SizedBox(height: 8),
+              Text('Resim yüklenemedi', style: TextStyle(color: Colors.grey)),
+            ],
           ),
         );
       },
@@ -862,17 +849,28 @@ class _ColoringPageState extends State<ColoringPage>
   }
 
   Widget _buildColorPalette() {
+    // 42 canlı renk
     final colors = [
+      // Siyah & Beyaz & Gri tonları
       Colors.black, Colors.white,
-      Colors.grey[800]!, Colors.grey[600]!, Colors.grey[400]!, Colors.grey[200]!,
+      const Color(0xFF333333), const Color(0xFF666666), const Color(0xFF999999), const Color(0xFFCCCCCC),
+      // Kırmızılar
       const Color(0xFFCC0000), const Color(0xFFFF0000), const Color(0xFFFF3333), const Color(0xFFFF6666),
+      // Turuncular
       const Color(0xFFCC5500), const Color(0xFFFF6600), const Color(0xFFFF9933), const Color(0xFFFFCC66),
+      // Sarılar
       const Color(0xFFCCAA00), const Color(0xFFFFDD00), const Color(0xFFFFEE33), const Color(0xFFFFFF66),
+      // Yeşiller
       const Color(0xFF006600), const Color(0xFF009900), const Color(0xFF00CC00), const Color(0xFF33FF33),
+      // Maviler
       const Color(0xFF0000CC), const Color(0xFF0066FF), const Color(0xFF0099FF), const Color(0xFF33CCFF),
+      // Morlar
       const Color(0xFF660099), const Color(0xFF9900CC), const Color(0xFFCC33FF), const Color(0xFFDD66FF),
+      // Pembe
       const Color(0xFFCC0066), const Color(0xFFFF0066), const Color(0xFFFF3399), const Color(0xFFFF66B2),
+      // Kahverengi
       const Color(0xFF331900), const Color(0xFF663300), const Color(0xFF996633), const Color(0xFFCC9966),
+      // Turkuaz
       const Color(0xFF006666), const Color(0xFF009999), const Color(0xFF00CCCC), const Color(0xFF66FFFF),
     ];
     return Container(
@@ -936,7 +934,7 @@ class _ColoringPageState extends State<ColoringPage>
           }),
           _buildToolButton(icon: Icons.emoji_emotions, label: 'Sticker', isActive: _stickerMode, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _stickerMode = !_stickerMode; _isErasing = false; _isTextMode = false; _showSubTools = true; });
+            setState(() { _stickerMode = !_stickerMode; _isErasing = false; _isTextMode = false; _showSubTools = _stickerMode; });
           }),
         ],
       ),
