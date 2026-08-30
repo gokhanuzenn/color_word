@@ -15,12 +15,18 @@ class DrawStroke {
   final List<Offset> points;
   final bool isEraser;
   final bool isFill;
+  final String toolType; // 'kalem', 'fırça'
+  final String subTool; // 'HB', '2B', 'Sulu Boya', vs.
+  final double opacity;
   DrawStroke({
     required this.color,
     required this.size,
     required this.points,
     this.isEraser = false,
     this.isFill = false,
+    this.toolType = 'kalem',
+    this.subTool = 'HB',
+    this.opacity = 1.0,
   });
 }
 
@@ -79,6 +85,7 @@ class _ColoringPageState extends State<ColoringPage>
   double _brushSize = 6.0;
   bool _isErasing = false;
   String _selectedTool = 'kalem';
+  String _selectedSubTool = 'HB'; // Kalem: HB, 2B, 4B, 6B, 8B | Fırça: Normal, Sulu Boya, Pastel, Yağlı Boya, Kuru Boya
   bool _showSubTools = false;
   bool _isTextMode = false;
   bool _isDrawing = false;
@@ -167,13 +174,67 @@ class _ColoringPageState extends State<ColoringPage>
       _redoStack.clear();
 
       if (_isErasing) {
-        // Silgi: sadece kullanıcının çizdiği çizgileri sil
         _eraseAtPoint(drawingPoint);
       } else {
+        // Araç tipine göre farklı özellikler
+        double strokeWidth = _brushSize;
+        double strokeOpacity = _opacity;
+        Color strokeColor = _selectedColor;
+
+        if (_selectedTool == 'kalem') {
+          // Kalem varyasyonları: HB (ince/açık), 8B (kalın/koyu)
+          switch (_selectedSubTool) {
+            case 'HB':
+              strokeWidth = _brushSize * 0.8;
+              strokeOpacity = (_opacity * 0.7).clamp(0.1, 1.0);
+              break;
+            case '2B':
+              strokeWidth = _brushSize * 1.0;
+              strokeOpacity = (_opacity * 0.8).clamp(0.1, 1.0);
+              break;
+            case '4B':
+              strokeWidth = _brushSize * 1.3;
+              strokeOpacity = (_opacity * 0.9).clamp(0.1, 1.0);
+              break;
+            case '6B':
+              strokeWidth = _brushSize * 1.6;
+              strokeOpacity = (_opacity * 0.95).clamp(0.1, 1.0);
+              break;
+            case '8B':
+              strokeWidth = _brushSize * 2.0;
+              strokeOpacity = _opacity;
+              break;
+          }
+        } else if (_selectedTool == 'fırça') {
+          // Fırça varyasyonları
+          switch (_selectedSubTool) {
+            case 'Normal':
+              strokeWidth = _brushSize * 1.5;
+              break;
+            case 'Sulu Boya':
+              strokeWidth = _brushSize * 2.0;
+              strokeOpacity = (_opacity * 0.4).clamp(0.1, 1.0); // Yarı saydam
+              break;
+            case 'Pastel':
+              strokeWidth = _brushSize * 2.5; // Daha geniş
+              break;
+            case 'Yağlı Boya':
+              strokeWidth = _brushSize * 3.0; // Çok kalın
+              strokeOpacity = _opacity; // Tam opak
+              break;
+            case 'Kuru Boya':
+              strokeWidth = _brushSize * 1.8;
+              break;
+          }
+        }
+
         _currentStroke = DrawStroke(
-          color: _selectedColor.withOpacity(_opacity),
-          size: _selectedTool == 'fırça' ? _brushSize * 1.5 : _brushSize,
+          color: strokeColor.withOpacity(strokeOpacity),
+          size: strokeWidth,
           points: [drawingPoint],
+          toolType: _selectedTool,
+          subTool: _selectedSubTool,
+          opacity: strokeOpacity,
         );
       }
     });
@@ -918,11 +979,25 @@ class _ColoringPageState extends State<ColoringPage>
         children: [
           _buildToolButton(icon: Icons.edit, label: 'Kalem', isActive: _selectedTool == 'kalem' && !_isErasing && !_isTextMode && !_stickerMode, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _selectedTool = 'kalem'; _isErasing = false; _isTextMode = false; _stickerMode = false; _showSubTools = !_showSubTools || _selectedTool != 'kalem'; });
+            setState(() {
+              _selectedTool = 'kalem';
+              _selectedSubTool = 'HB'; // Varsayılan kalem
+              _isErasing = false;
+              _isTextMode = false;
+              _stickerMode = false;
+              _showSubTools = !_showSubTools || _selectedTool != 'kalem';
+            });
           }),
           _buildToolButton(icon: Icons.brush, label: 'Fırça', isActive: _selectedTool == 'fırça' && !_isErasing, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _selectedTool = 'fırça'; _isErasing = false; _isTextMode = false; _stickerMode = false; _showSubTools = !_showSubTools || _selectedTool != 'fırça'; });
+            setState(() {
+              _selectedTool = 'fırça';
+              _selectedSubTool = 'Normal'; // Varsayılan fırça
+              _isErasing = false;
+              _isTextMode = false;
+              _stickerMode = false;
+              _showSubTools = !_showSubTools || _selectedTool != 'fırça';
+            });
           }),
           _buildToolButton(icon: Icons.auto_fix_high, label: 'Silgi', isActive: _isErasing, onTap: () {
             HapticHelper.lightImpact();
@@ -1007,20 +1082,25 @@ class _ColoringPageState extends State<ColoringPage>
         itemCount: subTools.length,
         itemBuilder: (context, index) {
           final tool = subTools[index];
+          final isSelected = _selectedSubTool == tool;
           return GestureDetector(
             onTap: () {
               HapticHelper.lightImpact();
-              setState(() { _showSubTools = false; });
+              setState(() {
+                _selectedSubTool = tool;
+                _showSubTools = false;
+              });
             },
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.symmetric(horizontal: 4),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isSelected ? Colors.black : Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.black, width: 1),
+                border: Border.all(color: Colors.black, width: isSelected ? 2 : 1),
               ),
-              child: Center(child: Text(tool, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+              child: Center(child: Text(tool, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : Colors.black))),
             ),
           );
         },
@@ -1040,42 +1120,270 @@ class StrokePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     for (final stroke in strokes) {
-      if (stroke.isFill) {
-        if (stroke.points.isNotEmpty) {
-          final paint = Paint()..color = stroke.color.withOpacity(0.6)..style = PaintingStyle.fill;
-          canvas.drawCircle(stroke.points.first, stroke.size * 5, paint);
-        }
-        continue;
-      }
+      _drawStroke(canvas, stroke);
+    }
+    if (currentStroke != null && currentStroke!.points.length >= 2) {
+      _drawStroke(canvas, currentStroke!);
+    }
+  }
 
-      if (stroke.points.length < 2) continue;
+  void _drawStroke(Canvas canvas, DrawStroke stroke) {
+    if (stroke.isFill) {
+      if (stroke.points.isNotEmpty) {
+        final paint = Paint()..color = stroke.color.withOpacity(0.6)..style = PaintingStyle.fill;
+        canvas.drawCircle(stroke.points.first, stroke.size * 5, paint);
+      }
+      return;
+    }
+
+    if (stroke.points.length < 2) return;
+
+    final path = Path()..moveTo(stroke.points.first.dx, stroke.points.first.dy);
+    for (int i = 1; i < stroke.points.length; i++) {
+      path.lineTo(stroke.points[i].dx, stroke.points[i].dy);
+    }
+
+    // Araç tipine göre farklı çizim efektleri
+    if (stroke.toolType == 'kalem') {
+      _drawPencilStroke(canvas, path, stroke);
+    } else if (stroke.toolType == 'fırça') {
+      _drawBrushStroke(canvas, path, stroke);
+    } else {
+      // Varsayılan
       final paint = Paint()
         ..color = stroke.color
         ..strokeWidth = stroke.size
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke;
-
-      final path = Path()..moveTo(stroke.points.first.dx, stroke.points.first.dy);
-      for (int i = 1; i < stroke.points.length; i++) {
-        path.lineTo(stroke.points[i].dx, stroke.points[i].dy);
-      }
       canvas.drawPath(path, paint);
     }
+  }
 
-    if (currentStroke != null && currentStroke!.points.length >= 2) {
-      final paint = Paint()
-        ..color = currentStroke!.color
-        ..strokeWidth = currentStroke!.size
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke;
+  /// Kalem çizgileri - HB'den 8B'ye kadar kalınlaşma
+  void _drawPencilStroke(Canvas canvas, Path path, DrawStroke stroke) {
+    final random = Random(stroke.points.length.hashCode);
+    
+    switch (stroke.subTool) {
+      case 'HB':
+        // HB: İnce, temiz çizgi
+        final paint = Paint()
+          ..color = stroke.color
+          ..strokeWidth = stroke.size
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+        canvas.drawPath(path, paint);
+        break;
 
-      final path = Path()..moveTo(currentStroke!.points.first.dx, currentStroke!.points.first.dy);
-      for (int i = 1; i < currentStroke!.points.length; i++) {
-        path.lineTo(currentStroke!.points[i].dx, currentStroke!.points[i].dy);
-      }
-      canvas.drawPath(path, paint);
+      case '2B':
+        // 2B: Hafif doku, orta kalınlık
+        final paint = Paint()
+          ..color = stroke.color
+          ..strokeWidth = stroke.size
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+        canvas.drawPath(path, paint);
+        // Hafif doku ekle
+        for (int i = 0; i < stroke.points.length; i += 3) {
+          final offset = Offset(
+            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size * 0.3,
+            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size * 0.3,
+          );
+          final dotPaint = Paint()
+            ..color = stroke.color.withOpacity(0.3)
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(offset, stroke.size * 0.1, dotPaint);
+        }
+        break;
+
+      case '4B':
+        // 4B: Kalın, koyu, belirgin doku
+        final paint = Paint()
+          ..color = stroke.color
+          ..strokeWidth = stroke.size
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+        canvas.drawPath(path, paint);
+        // Daha belirgin doku
+        for (int i = 0; i < stroke.points.length; i += 2) {
+          final offset = Offset(
+            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size * 0.5,
+            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size * 0.5,
+          );
+          final dotPaint = Paint()
+            ..color = stroke.color.withOpacity(0.4)
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(offset, stroke.size * 0.15, dotPaint);
+        }
+        break;
+
+      case '6B':
+        // 6B: Çok kalın, çok koyu, güçlü doku
+        final paint = Paint()
+          ..color = stroke.color
+          ..strokeWidth = stroke.size * 1.2
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+        canvas.drawPath(path, paint);
+        // Güçlü doku
+        for (int i = 0; i < stroke.points.length; i += 2) {
+          final offset = Offset(
+            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size * 0.7,
+            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size * 0.7,
+          );
+          final dotPaint = Paint()
+            ..color = stroke.color.withOpacity(0.5)
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(offset, stroke.size * 0.2, dotPaint);
+        }
+        break;
+
+      case '8B':
+        // 8B: En kalın, en koyu, maksimum doku
+        final paint = Paint()
+          ..color = stroke.color
+          ..strokeWidth = stroke.size * 1.5
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+        canvas.drawPath(path, paint);
+        // Maksimum doku
+        for (int i = 0; i < stroke.points.length; i++) {
+          final offset = Offset(
+            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size,
+            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size,
+          );
+          final dotPaint = Paint()
+            ..color = stroke.color.withOpacity(0.6)
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(offset, stroke.size * 0.25, dotPaint);
+        }
+        break;
+
+      default:
+        final paint = Paint()
+          ..color = stroke.color
+          ..strokeWidth = stroke.size
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+        canvas.drawPath(path, paint);
+    }
+  }
+
+  /// Fırça çizgileri - Normal'den Yağlı Boya'ya kadar
+  void _drawBrushStroke(Canvas canvas, Path path, DrawStroke stroke) {
+    final random = Random(stroke.points.length.hashCode);
+    
+    switch (stroke.subTool) {
+      case 'Normal':
+        // Normal fırça: Standart çizgi
+        final paint = Paint()
+          ..color = stroke.color
+          ..strokeWidth = stroke.size
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+        canvas.drawPath(path, paint);
+        break;
+
+      case 'Sulu Boya':
+        // Sulu boya: Yarı saydam, yumuşak kenarlar, su efekti
+        // Ana çizgi
+        final mainPaint = Paint()
+          ..color = stroke.color.withOpacity(stroke.opacity * 0.5)
+          ..strokeWidth = stroke.size * 1.2
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
+        canvas.drawPath(path, mainPaint);
+        // Sıçrama efekti
+        for (int i = 0; i < stroke.points.length; i += 4) {
+          final offset = Offset(
+            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size * 2,
+            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size * 2,
+          );
+          final splashPaint = Paint()
+            ..color = stroke.color.withOpacity(0.15)
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(offset, stroke.size * (0.5 + random.nextDouble()), splashPaint);
+        }
+        break;
+
+      case 'Pastel':
+        // Pastel: Geniş, yumuşak, grenli doku
+        final mainPaint = Paint()
+          ..color = stroke.color.withOpacity(stroke.opacity * 0.8)
+          ..strokeWidth = stroke.size * 1.5
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+        canvas.drawPath(path, mainPaint);
+        // Grenli doku
+        for (int i = 0; i < stroke.points.length; i += 2) {
+          final offset = Offset(
+            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size,
+            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size,
+          );
+          final grainPaint = Paint()
+            ..color = stroke.color.withOpacity(0.3)
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(offset, stroke.size * 0.15, grainPaint);
+        }
+        break;
+
+      case 'Yağlı Boya':
+        // Yağlı boya: Çok kalın, tam opak,峦纹 efekti
+        final mainPaint = Paint()
+          ..color = stroke.color
+          ..strokeWidth = stroke.size * 2.0
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+        canvas.drawPath(path, mainPaint);
+        // 峦纹 efekti
+        for (int i = 0; i < stroke.points.length; i += 3) {
+          final offset = Offset(
+            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size * 0.5,
+            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size * 0.5,
+          );
+          final texturePaint = Paint()
+            ..color = stroke.color.withOpacity(0.7)
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(offset, stroke.size * 0.3, texturePaint);
+        }
+        break;
+
+      case 'Kuru Boya':
+        // Kuru boya: Kesik çizgi, kuru fırça efekti
+        for (int i = 0; i < stroke.points.length - 1; i += 2) {
+          if (i + 1 < stroke.points.length) {
+            final segmentPath = Path()
+              ..moveTo(stroke.points[i].dx, stroke.points[i].dy)
+              ..lineTo(stroke.points[i + 1].dx, stroke.points[i + 1].dy);
+            final segmentPaint = Paint()
+              ..color = stroke.color.withOpacity(stroke.opacity * (0.5 + random.nextDouble() * 0.5))
+              ..strokeWidth = stroke.size * (0.8 + random.nextDouble() * 0.4)
+              ..strokeCap = StrokeCap.round
+              ..style = PaintingStyle.stroke;
+            canvas.drawPath(segmentPath, segmentPaint);
+          }
+        }
+        break;
+
+      default:
+        final paint = Paint()
+          ..color = stroke.color
+          ..strokeWidth = stroke.size
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+        canvas.drawPath(path, paint);
     }
   }
 
