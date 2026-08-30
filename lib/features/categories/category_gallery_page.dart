@@ -8,7 +8,7 @@ import '../coloring/coloring_page.dart';
 import '../../data/services/ad_service.dart';
 import '../../core/utils/responsive_helper.dart';
 
-/// Kategori isimlerini klasör isimlerine eşle
+/// Kategori isimlerini klasör isimlerine eşle (güncel)
 const Map<String, String> _categoryFolderMap = {
   'Çiftlik': 'ciftlik',
   'Deniz Altı': 'deniz_alti',
@@ -22,7 +22,6 @@ const Map<String, String> _categoryFolderMap = {
   'Kız Karakter': 'kiz_karakter',
   'Meslekler': 'meslekler',
   'Meyveler': 'meyveler',
-  'Okyanus': 'okyanus',
   'Oyuncaklar': 'oyuncak',
   'Robotlar': 'robot',
   'Sayılar': 'sayilar',
@@ -31,8 +30,6 @@ const Map<String, String> _categoryFolderMap = {
   'Taşıtlar': 'tasitlar',
   'Uzay': 'uzay',
   'Vahşi Dostlar': 'vahsi_dostlar',
-  'Yiyecekler': 'yiyecekler',
-  // Yeni eklenen kategoriler
   'Mandalalar': 'mandalalar',
   'Çiçekler': 'cicekler',
   'Prensesler': 'prensesler',
@@ -43,38 +40,36 @@ const Map<String, String> _categoryFolderMap = {
   'Bahçeler': 'bahceler',
 };
 
-/// Her kategorideki resim sayıları (güncel)
+/// Her kategorideki resim sayıları (güncel - tümü SVG)
 const Map<String, int> _categoryImageCounts = {
-  'ciftlik': 11,
-  'deniz_alti': 11,
-  'dinozor': 22,
-  'doga_gokyuzu': 12,
-  'erkek_karakter': 20,
-  'harfler': 25,
-  'insaat': 24,
-  'kahraman': 19,
-  'kiz_karakter': 22,
-  'meslekler': 31,
-  'meyveler': 11,
-  'okyanus': 20,
-  'oyuncak': 6,
-  'robot': 15,
-  'sayilar': 12,
-  'sevimli_dostlar': 11,
-  'tamamlayici': 20,
-  'tasitlar': 11,
-  'uzay': 26,
-  'vahsi_dostlar': 11,
-  'yiyecekler': 41,
-  // Yeni eklenen kategoriler (henüz resim yok)
-  'mandalalar': 0,
-  'cicekler': 0,
-  'prensesler': 0,
-  'masal_kahramanlari': 0,
-  'spor': 0,
-  'muzik_aletleri': 0,
-  'manzaralar': 0,
-  'bahceler': 0,
+  'ciftlik': 83,
+  'deniz_alti': 92,
+  'dinozor': 100,
+  'doga_gokyuzu': 42,
+  'emoji': 90,
+  'erkek_karakter': 50,
+  'harfler': 30,
+  'insaat': 80,
+  'kahraman': 37,
+  'kiz_karakter': 50,
+  'meslekler': 47,
+  'meyveler': 25,
+  'oyuncak': 50,
+  'robot': 66,
+  'sayilar': 22,
+  'sevimli_dostlar': 15,
+  'tamamlayici': 35,
+  'tasitlar': 55,
+  'uzay': 35,
+  'vahsi_dostlar': 43,
+  'mandalalar': 49,
+  'cicekler': 30,
+  'prensesler': 100,
+  'masal_kahramanlari': 50,
+  'spor': 33,
+  'muzik_aletleri': 29,
+  'manzaralar': 34,
+  'bahceler': 30,
 };
 
 /// Kategori resim galerisi sayfası
@@ -111,10 +106,9 @@ class _CategoryGalleryPageState extends State<CategoryGalleryPage> {
     _imagePaths = [];
 
     for (int i = 1; i <= imageCount; i++) {
-      // PNG ve SVG formatlarını dene
-      String pngPath = 'assets/images/$folderName/${folderName}_$i.png';
+      // SVG formatını ekle (tüm resimler artık SVG)
       String svgPath = 'assets/images/$folderName/${folderName}_$i.svg';
-      _imagePaths.add(pngPath); // Varsayılan PNG, errorBuilder SVG'ye düşecek
+      _imagePaths.add(svgPath);
     }
 
     setState(() => _isLoading = false);
@@ -238,36 +232,36 @@ class _CategoryGalleryPageState extends State<CategoryGalleryPage> {
     );
   }
 
-  /// Her iki formatı da deneyerek resim göster (PNG + SVG)
+  /// Her iki formatı da deneyerek resim göster (SVG öncelikli)
   Widget _buildImageWithIndex(int index) {
     final folderName = _categoryFolderMap[widget.categoryName] ?? 'ciftlik';
     final imageIndex = index + 1;
 
-    // PNG formatları
-    String pngPath3h = 'assets/images/$folderName/${folderName}_${imageIndex.toString().padLeft(3, '0')}.png';
-    String pngPath12h = 'assets/images/$folderName/${folderName}_$imageIndex.png';
-    // SVG formatları
-    String svgPath3h = 'assets/images/$folderName/${folderName}_${imageIndex.toString().padLeft(3, '0')}.svg';
-    String svgPath12h = 'assets/images/$folderName/${folderName}_$imageIndex.svg';
+    // SVG formatları (öncelikli)
+    String svgPath1 = 'assets/images/$folderName/${folderName}_$imageIndex.svg';
+    String svgPath3 = 'assets/images/$folderName/${folderName}_${imageIndex.toString().padLeft(3, '0')}.svg';
+    // PNG formatları (fallback)
+    String pngPath1 = 'assets/images/$folderName/${folderName}_$imageIndex.png';
+    String pngPath3 = 'assets/images/$folderName/${folderName}_${imageIndex.toString().padLeft(3, '0')}.png';
 
-    // Önce _001 PNG, sonra _1 PNG, sonra _001 SVG, sonra _1 SVG, en sonda ikon
-    return Image.asset(
-      pngPath3h,
+    // Önce SVG dene, sonra PNG
+    return SvgPicture.asset(
+      svgPath1,
       fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) {
-        return Image.asset(
-          pngPath12h,
+      placeholderBuilder: (context) {
+        return SvgPicture.asset(
+          svgPath3,
           fit: BoxFit.contain,
-          errorBuilder: (context, error2, stackTrace2) {
-            // SVG dene
-            return SvgPicture.asset(
-              svgPath3h,
+          placeholderBuilder: (context2) {
+            // SVG yoksa PNG dene
+            return Image.asset(
+              pngPath1,
               fit: BoxFit.contain,
-              placeholderBuilder: (context) {
-                return SvgPicture.asset(
-                  svgPath12h,
+              errorBuilder: (context, error, stackTrace) {
+                return Image.asset(
+                  pngPath3,
                   fit: BoxFit.contain,
-                  placeholderBuilder: (context2) {
+                  errorBuilder: (context, error, stackTrace) {
                     return Center(
                       child: Icon(Icons.image, size: 32, color: widget.categoryColor.withOpacity(0.5)),
                     );

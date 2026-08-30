@@ -64,8 +64,6 @@ flutter:
 
   assets:
     - assets/images/
-    - assets/images/categories/
-    - assets/images/words/
     - assets/images/ciftlik/
     - assets/images/deniz_alti/
     - assets/images/dinozor/
@@ -78,7 +76,6 @@ flutter:
     - assets/images/kiz_karakter/
     - assets/images/meslekler/
     - assets/images/meyveler/
-    - assets/images/okyanus/
     - assets/images/oyuncak/
     - assets/images/robot/
     - assets/images/sayilar/
@@ -87,7 +84,6 @@ flutter:
     - assets/images/tasitlar/
     - assets/images/uzay/
     - assets/images/vahsi_dostlar/
-    - assets/images/yiyecekler/
     - assets/images/mandalalar/
     - assets/images/cicekler/
     - assets/images/prensesler/
