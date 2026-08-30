@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../coloring/coloring_page.dart';
@@ -106,9 +104,9 @@ class _CategoryGalleryPageState extends State<CategoryGalleryPage> {
     _imagePaths = [];
 
     for (int i = 1; i <= imageCount; i++) {
-      // SVG formatını ekle (tüm resimler artık SVG)
-      String svgPath = 'assets/images/$folderName/${folderName}_$i.svg';
-      _imagePaths.add(svgPath);
+      // PNG formatını ekle (optimize edilmiş)
+      String pngPath = 'assets/images/$folderName/${folderName}_$i.png';
+      _imagePaths.add(pngPath);
     }
 
     setState(() => _isLoading = false);
@@ -232,44 +230,19 @@ class _CategoryGalleryPageState extends State<CategoryGalleryPage> {
     );
   }
 
-  /// Her iki formatı da deneyerek resim göster (SVG öncelikli)
+  /// PNG formatında resim göster
   Widget _buildImageWithIndex(int index) {
     final folderName = _categoryFolderMap[widget.categoryName] ?? 'ciftlik';
     final imageIndex = index + 1;
 
-    // SVG formatları (öncelikli)
-    String svgPath1 = 'assets/images/$folderName/${folderName}_$imageIndex.svg';
-    String svgPath3 = 'assets/images/$folderName/${folderName}_${imageIndex.toString().padLeft(3, '0')}.svg';
-    // PNG formatları (fallback)
-    String pngPath1 = 'assets/images/$folderName/${folderName}_$imageIndex.png';
-    String pngPath3 = 'assets/images/$folderName/${folderName}_${imageIndex.toString().padLeft(3, '0')}.png';
+    String pngPath = 'assets/images/$folderName/${folderName}_$imageIndex.png';
 
-    // Önce SVG dene, sonra PNG
-    return SvgPicture.asset(
-      svgPath1,
+    return Image.asset(
+      pngPath,
       fit: BoxFit.contain,
-      placeholderBuilder: (context) {
-        return SvgPicture.asset(
-          svgPath3,
-          fit: BoxFit.contain,
-          placeholderBuilder: (context2) {
-            // SVG yoksa PNG dene
-            return Image.asset(
-              pngPath1,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return Image.asset(
-                  pngPath3,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Center(
-                      child: Icon(Icons.image, size: 32, color: widget.categoryColor.withOpacity(0.5)),
-                    );
-                  },
-                );
-              },
-            );
-          },
+      errorBuilder: (context, error, stackTrace) {
+        return Center(
+          child: Icon(Icons.image, size: 32, color: widget.categoryColor.withOpacity(0.5)),
         );
       },
     );
