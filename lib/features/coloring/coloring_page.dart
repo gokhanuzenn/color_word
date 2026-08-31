@@ -543,7 +543,10 @@ class _ColoringPageState extends State<ColoringPage>
 
   void _onScaleEnd(ScaleEndDetails details) {
     _wasMultiTouch = false;
-    _endDrawing();
+    // Sadece çizim yapılıyorsa bitir, zoom sırasında bitirmeyelim
+    if (_isDrawing) {
+      _endDrawing();
+    }
   }
 
   void _resetZoom() {
@@ -680,6 +683,7 @@ class _ColoringPageState extends State<ColoringPage>
           child: LayoutBuilder(
             builder: (context, constraints) {
               return GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onScaleStart: _onScaleStart,
                 onScaleUpdate: _onScaleUpdate,
                 onScaleEnd: _onScaleEnd,
