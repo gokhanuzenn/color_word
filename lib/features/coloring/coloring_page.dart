@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'dart:io';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -83,13 +82,14 @@ class _ColoringPageState extends State<ColoringPage>
   List<DrawStroke> _strokes = [];
   List<DrawStroke> _redoStack = [];
   Color _selectedColor = Colors.black;
-  double _brushSize = 6.0;
+  double _brushSize = 4.0;
   bool _isErasing = false;
   String _selectedTool = 'kalem';
   String _selectedSubTool = 'HB';
   bool _showSubTools = false;
   bool _isTextMode = false;
   bool _isDrawing = false;
+  bool _isDropperMode = false;
   DrawStroke? _currentStroke;
 
   bool _stickerMode = false;
@@ -110,10 +110,6 @@ class _ColoringPageState extends State<ColoringPage>
   Offset _lastFocalPoint = Offset.zero;
   Offset _lastOffset = Offset.zero;
   bool _wasMultiTouch = false;
-
-  // Boyama hissini iyileştirme
-  DateTime? _lastDrawTime;
-  final List<Offset> _drawFeedback = [];
 
   @override
   void initState() {
@@ -170,6 +166,17 @@ class _ColoringPageState extends State<ColoringPage>
 
     if (_isTextMode) {
       _showTextInputDialog(drawingPoint);
+      return;
+    }
+
+    if (_isDropperMode) {
+      // Renk dropper - dokunulan yerden renk al
+      HapticHelper.selectionClick();
+      setState(() {
+        _selectedColor = _getDrawingColorAt(drawingPoint);
+        _isDropperMode = false;
+        _selectedTool = 'kalem';
+      });
       return;
     }
 
@@ -271,8 +278,8 @@ class _ColoringPageState extends State<ColoringPage>
   // === MİLİMİETRİK SİLGI - SADECE ÇİZGİLERİ SİLER ===
 
   void _eraseAtPoint(Offset eraserCenter) {
-    // Milimetrik silme - çok hassas
-    final eraserRadius = _brushSize * 1.5; // Daha küçük yarıçap
+    // Milimetrik silme - çok hassas, sadece çizgi üzerindeki noktaları siler
+    final eraserRadius = _brushSize * 0.8; // Hassas yarıçap
     final newStrokes = <DrawStroke>[];
 
     for (final stroke in _strokes) {
@@ -513,7 +520,9 @@ class _ColoringPageState extends State<ColoringPage>
         return;
       }
 
-      if (_isPanning && _scale > 1.0) {
+      // Zoom yapıldıysa tek parmakla her zaman kaydır (pan)
+      // Sadece 1.0x zoom'da çizim yapılır
+      if (_scale > 1.05) {
         final delta = details.focalPoint - _lastFocalPoint;
         setState(() {
           _offset = _offset + delta;
@@ -546,6 +555,23 @@ class _ColoringPageState extends State<ColoringPage>
   void _togglePanMode() {
     setState(() => _isPanning = !_isPanning);
     HapticHelper.lightImpact();
+  }
+
+  Color _getDrawingColorAt(Offset point) {
+    // Yakın çevredeki en çok kullanılan rengi bul
+    Color closestColor = _selectedColor;
+    double minDist = double.infinity;
+    for (final stroke in _strokes.reversed) {
+      for (final p in stroke.points) {
+        final dist = (p - point).distance;
+        if (dist < minDist && dist < stroke.size * 2) {
+          minDist = dist;
+          closestColor = stroke.color;
+        }
+      }
+      if (minDist < 5) break;
+    }
+    return closestColor;
   }
 
   // === ANA SAYFA ===
@@ -593,14 +619,8 @@ class _ColoringPageState extends State<ColoringPage>
           _buildSmallButton(icon: Icons.undo, onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty) ? _undo : null),
           _buildSmallButton(icon: Icons.redo, onTap: _redoStack.isNotEmpty ? _redo : null),
           _buildSmallButton(icon: Icons.save, onTap: _strokes.isNotEmpty ? _saveDrawing : null),
-          if (_scale > 1.0) ...[
-            _buildSmallButton(
-              icon: _isPanning ? Icons.pan_tool : Icons.draw,
-              onTap: _togglePanMode,
-              isActive: _isPanning,
-            ),
-            _buildSmallButton(icon: Icons.zoom_out, onTap: _resetZoom),
-          ],
+          if (_scale > 1.0)
+            _buildSmallButton(icon: Icons.zoom_out_map, onTap: _resetZoom),
           _buildSmallButton(
             icon: Icons.delete_outline,
             onTap: (_strokes.isNotEmpty || _placedStickers.isNotEmpty || _placedTexts.isNotEmpty)
@@ -796,7 +816,7 @@ class _ColoringPageState extends State<ColoringPage>
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '${(_scale * 100).toInt()}% • ${_isPanning ? 'Kaydır' : 'Çiz'}',
+                        '${(_scale * 100).toInt()}% • Kaydır',
                         style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -894,26 +914,43 @@ class _ColoringPageState extends State<ColoringPage>
   }
 
   Widget _buildSizeSlider() {
-    final maxSize = _isErasing ? 30.0 : (_selectedTool == 'fırça' ? 20.0 : 12.0);
+    final maxSize = _isErasing ? 20.0 : (_selectedTool == 'fırça' ? 16.0 : 10.0);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
         children: [
-          Icon(Icons.circle, size: 8, color: Colors.black),
+          Icon(Icons.circle, size: 6, color: _isErasing ? Colors.red : Colors.black),
           Expanded(
             flex: 3,
             child: SliderTheme(
-              data: SliderThemeData(activeTrackColor: Colors.black, inactiveTrackColor: Colors.grey[300], thumbColor: Colors.black, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6)),
+              data: SliderThemeData(
+                activeTrackColor: _isErasing ? Colors.red : Colors.black,
+                inactiveTrackColor: Colors.grey[300],
+                thumbColor: _isErasing ? Colors.red : Colors.black,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                trackHeight: 3,
+              ),
               child: Slider(value: _brushSize, min: 1.0, max: maxSize, onChanged: (v) => setState(() => _brushSize = v)),
             ),
           ),
-          Icon(Icons.circle, size: 16, color: Colors.black),
+          Icon(Icons.circle, size: 14, color: _isErasing ? Colors.red : Colors.black),
           const SizedBox(width: 4),
           Container(
-            width: 28, height: 28,
-            decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey[300]!)),
+            width: 24, height: 24,
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
             child: Center(
-              child: Container(width: _brushSize * 2, height: _brushSize * 2, decoration: BoxDecoration(color: (_isErasing ? Colors.red : _selectedColor).withOpacity(_opacity), shape: BoxShape.circle)),
+              child: Container(
+                width: (_brushSize * 1.5).clamp(2.0, 18.0),
+                height: (_brushSize * 1.5).clamp(2.0, 18.0),
+                decoration: BoxDecoration(
+                  color: (_isErasing ? Colors.red : _selectedColor).withOpacity(_opacity),
+                  shape: BoxShape.circle,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 4),
@@ -921,7 +958,7 @@ class _ColoringPageState extends State<ColoringPage>
           Expanded(
             flex: 2,
             child: SliderTheme(
-              data: SliderThemeData(activeTrackColor: Colors.blue, inactiveTrackColor: Colors.grey[300], thumbColor: Colors.blue, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6)),
+              data: SliderThemeData(activeTrackColor: Colors.blue, inactiveTrackColor: Colors.grey[300], thumbColor: Colors.blue, thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5), trackHeight: 3),
               child: Slider(value: _opacity, min: 0.1, max: 1.0, onChanged: (v) => setState(() => _opacity = v)),
             ),
           ),
@@ -961,6 +998,7 @@ class _ColoringPageState extends State<ColoringPage>
                 _isErasing = false;
                 _isTextMode = false;
                 _stickerMode = false;
+                _isDropperMode = false;
                 _selectedTool = 'kalem';
                 _showSubTools = false;
               });
@@ -987,7 +1025,7 @@ class _ColoringPageState extends State<ColoringPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildToolButton(icon: Icons.edit, label: 'Kalem', isActive: _selectedTool == 'kalem' && !_isErasing && !_isTextMode && !_stickerMode, onTap: () {
+          _buildToolButton(icon: Icons.edit, label: 'Kalem', isActive: _selectedTool == 'kalem' && !_isErasing && !_isTextMode && !_stickerMode && !_isDropperMode, onTap: () {
             HapticHelper.lightImpact();
             setState(() {
               _selectedTool = 'kalem';
@@ -995,10 +1033,11 @@ class _ColoringPageState extends State<ColoringPage>
               _isErasing = false;
               _isTextMode = false;
               _stickerMode = false;
+              _isDropperMode = false;
               _showSubTools = !_showSubTools || _selectedTool != 'kalem';
             });
           }),
-          _buildToolButton(icon: Icons.brush, label: 'Fırça', isActive: _selectedTool == 'fırça' && !_isErasing, onTap: () {
+          _buildToolButton(icon: Icons.brush, label: 'Fırça', isActive: _selectedTool == 'fırça' && !_isErasing && !_isDropperMode, onTap: () {
             HapticHelper.lightImpact();
             setState(() {
               _selectedTool = 'fırça';
@@ -1006,20 +1045,25 @@ class _ColoringPageState extends State<ColoringPage>
               _isErasing = false;
               _isTextMode = false;
               _stickerMode = false;
+              _isDropperMode = false;
               _showSubTools = !_showSubTools || _selectedTool != 'fırça';
             });
           }),
           _buildToolButton(icon: Icons.auto_fix_high, label: 'Silgi', isActive: _isErasing, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _isErasing = !_isErasing; _isTextMode = false; _stickerMode = false; _showSubTools = false; });
+            setState(() { _isErasing = !_isErasing; _isTextMode = false; _stickerMode = false; _isDropperMode = false; _showSubTools = false; });
           }),
           _buildToolButton(icon: Icons.text_fields, label: 'Metin', isActive: _isTextMode, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _isTextMode = !_isTextMode; _isErasing = false; _stickerMode = false; _showSubTools = false; });
+            setState(() { _isTextMode = !_isTextMode; _isErasing = false; _stickerMode = false; _isDropperMode = false; _showSubTools = false; });
           }),
           _buildToolButton(icon: Icons.emoji_emotions, label: 'Sticker', isActive: _stickerMode, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _stickerMode = !_stickerMode; _isErasing = false; _isTextMode = false; _showSubTools = _stickerMode; });
+            setState(() { _stickerMode = !_stickerMode; _isErasing = false; _isTextMode = false; _isDropperMode = false; _showSubTools = _stickerMode; });
+          }),
+          _buildToolButton(icon: Icons.colorize, label: 'Renk', isActive: _isDropperMode, onTap: () {
+            HapticHelper.lightImpact();
+            setState(() { _isDropperMode = !_isDropperMode; _isErasing = false; _isTextMode = false; _stickerMode = false; _showSubTools = false; });
           }),
         ],
       ),
@@ -1119,7 +1163,8 @@ class _ColoringPageState extends State<ColoringPage>
   }
 }
 
-// === ÇİZİCİ - GELİŞTİRİLMİŞ ===
+// === PREMIUM ÇİZİCİ MOTORU ===
+// Catmull-Rom spline eğriler, hız bazlı genişlik, gerçekçi doku
 
 class StrokePainter extends CustomPainter {
   final List<DrawStroke> strokes;
@@ -1129,250 +1174,336 @@ class StrokePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.save();
     for (final stroke in strokes) {
-      _drawStroke(canvas, stroke);
+      _drawPremiumStroke(canvas, stroke);
     }
     if (currentStroke != null && currentStroke!.points.length >= 2) {
-      _drawStroke(canvas, currentStroke!);
+      _drawPremiumStroke(canvas, currentStroke!);
     }
+    canvas.restore();
   }
 
-  void _drawStroke(Canvas canvas, DrawStroke stroke) {
+  /// Ana çizim fonksiyonu - her araç tipini ayrı ayrı işler
+  void _drawPremiumStroke(Canvas canvas, DrawStroke stroke) {
     if (stroke.isFill) {
       if (stroke.points.isNotEmpty) {
-        final paint = Paint()..color = stroke.color.withOpacity(0.6)..style = PaintingStyle.fill;
+        final paint = Paint()
+          ..color = stroke.color.withOpacity(0.6)
+          ..style = PaintingStyle.fill;
         canvas.drawCircle(stroke.points.first, stroke.size * 5, paint);
       }
       return;
     }
 
-    if (stroke.points.length < 2) return;
-
-    final path = Path()..moveTo(stroke.points.first.dx, stroke.points.first.dy);
-    for (int i = 1; i < stroke.points.length; i++) {
-      path.lineTo(stroke.points[i].dx, stroke.points[i].dy);
+    final pts = stroke.points;
+    if (pts.length < 2) {
+      if (pts.length == 1) {
+        // Tek nokta - nokta çiz
+        final dotPaint = Paint()
+          ..color = stroke.color.withOpacity(stroke.opacity)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(pts.first, stroke.size / 2, dotPaint);
+      }
+      return;
     }
 
-    if (stroke.toolType == 'kalem') {
-      _drawPencilStroke(canvas, path, stroke);
-    } else if (stroke.toolType == 'fırça') {
-      _drawBrushStroke(canvas, path, stroke);
-    } else {
-      final paint = Paint()
-        ..color = stroke.color
-        ..strokeWidth = stroke.size
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke;
-      canvas.drawPath(path, paint);
+    // Hız bilgilerini hesapla (basınç simulasyonu)
+    final speeds = _calculateSpeeds(pts);
+
+    switch (stroke.toolType) {
+      case 'kalem':
+        _drawPencil(canvas, stroke, speeds);
+        break;
+      case 'fırça':
+        _drawBrush(canvas, stroke, speeds);
+        break;
+      default:
+        _drawSmoothLine(canvas, stroke, speeds);
     }
   }
 
-  void _drawPencilStroke(Canvas canvas, Path path, DrawStroke stroke) {
-    final random = Random(stroke.points.length.hashCode);
+  /// Her nokta arasındaki hızı hesapla (0.0 = yavaş, 1.0 = hızlı)
+  List<double> _calculateSpeeds(List<Offset> pts) {
+    if (pts.length < 2) return [0.0];
+    final speeds = <double>[];
+    double maxDist = 0;
+    for (int i = 1; i < pts.length; i++) {
+      final d = (pts[i] - pts[i - 1]).distance;
+      if (d > maxDist) maxDist = d;
+    }
+    if (maxDist == 0) return List.filled(pts.length, 0.0);
+    for (int i = 0; i < pts.length; i++) {
+      if (i == 0) {
+        speeds.add(((pts[1] - pts[0]).distance / maxDist).clamp(0.0, 1.0));
+      } else {
+        speeds.add(((pts[i] - pts[i - 1]).distance / maxDist).clamp(0.0, 1.0));
+      }
+    }
+    return speeds;
+  }
+
+  /// Catmull-Rom spline ile yumuşak eğri oluştur
+  Path _buildSmoothPath(List<Offset> pts) {
+    if (pts.length < 2) return Path()..moveTo(pts.first.dx, pts.first.dy);
+    if (pts.length == 2) {
+      return Path()
+        ..moveTo(pts[0].dx, pts[0].dy)
+        ..lineTo(pts[1].dx, pts[1].dy);
+    }
+
+    final path = Path()..moveTo(pts[0].dx, pts[0].dy);
+
+    for (int i = 0; i < pts.length - 1; i++) {
+      final p0 = pts[i > 0 ? i - 1 : i];
+      final p1 = pts[i];
+      final p2 = pts[i + 1];
+      final p3 = pts[i + 1 < pts.length - 1 ? i + 2 : i + 1];
+
+      // Catmull-Rom kontrol noktaları
+      final cp1 = Offset(
+        p1.dx + (p2.dx - p0.dx) / 6,
+        p1.dy + (p2.dy - p0.dy) / 6,
+      );
+      final cp2 = Offset(
+        p2.dx - (p3.dx - p1.dx) / 6,
+        p2.dy - (p3.dy - p1.dy) / 6,
+      );
+
+      path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
+    }
+
+    return path;
+  }
+
+  /// Kalem çizimi - her varyasyon için farklı doku
+  void _drawPencil(Canvas canvas, DrawStroke stroke, List<double> speeds) {
+    final pts = stroke.points;
+    final rng = Random(stroke.hashCode);
+
+    // Kalem tipine göre parametreler
+    double widthMultiplier;
+    double textureIntensity;
+    double grainDensity;
+    int grainSkip;
 
     switch (stroke.subTool) {
       case 'HB':
-        final paint = Paint()
-          ..color = stroke.color
-          ..strokeWidth = stroke.size
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..style = PaintingStyle.stroke;
-        canvas.drawPath(path, paint);
+        widthMultiplier = 0.7;
+        textureIntensity = 0.1;
+        grainDensity = 0.05;
+        grainSkip = 6;
         break;
-
       case '2B':
-        final paint = Paint()
-          ..color = stroke.color
-          ..strokeWidth = stroke.size
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..style = PaintingStyle.stroke;
-        canvas.drawPath(path, paint);
-        for (int i = 0; i < stroke.points.length; i += 3) {
-          final offset = Offset(
-            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size * 0.3,
-            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size * 0.3,
-          );
-          final dotPaint = Paint()
-            ..color = stroke.color.withOpacity(0.3)
-            ..style = PaintingStyle.fill;
-          canvas.drawCircle(offset, stroke.size * 0.1, dotPaint);
-        }
+        widthMultiplier = 1.0;
+        textureIntensity = 0.2;
+        grainDensity = 0.15;
+        grainSkip = 4;
         break;
-
       case '4B':
-        final paint = Paint()
-          ..color = stroke.color
-          ..strokeWidth = stroke.size
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..style = PaintingStyle.stroke;
-        canvas.drawPath(path, paint);
-        for (int i = 0; i < stroke.points.length; i += 2) {
-          final offset = Offset(
-            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size * 0.5,
-            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size * 0.5,
-          );
-          final dotPaint = Paint()
-            ..color = stroke.color.withOpacity(0.4)
-            ..style = PaintingStyle.fill;
-          canvas.drawCircle(offset, stroke.size * 0.15, dotPaint);
-        }
+        widthMultiplier = 1.3;
+        textureIntensity = 0.35;
+        grainDensity = 0.25;
+        grainSkip = 3;
         break;
-
       case '6B':
-        final paint = Paint()
-          ..color = stroke.color
-          ..strokeWidth = stroke.size * 1.2
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..style = PaintingStyle.stroke;
-        canvas.drawPath(path, paint);
-        for (int i = 0; i < stroke.points.length; i += 2) {
-          final offset = Offset(
-            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size * 0.7,
-            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size * 0.7,
-          );
-          final dotPaint = Paint()
-            ..color = stroke.color.withOpacity(0.5)
-            ..style = PaintingStyle.fill;
-          canvas.drawCircle(offset, stroke.size * 0.2, dotPaint);
-        }
+        widthMultiplier = 1.6;
+        textureIntensity = 0.5;
+        grainDensity = 0.35;
+        grainSkip = 2;
         break;
-
       case '8B':
-        final paint = Paint()
-          ..color = stroke.color
-          ..strokeWidth = stroke.size * 1.5
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..style = PaintingStyle.stroke;
-        canvas.drawPath(path, paint);
-        for (int i = 0; i < stroke.points.length; i++) {
-          final offset = Offset(
-            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size,
-            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size,
-          );
-          final dotPaint = Paint()
-            ..color = stroke.color.withOpacity(0.6)
-            ..style = PaintingStyle.fill;
-          canvas.drawCircle(offset, stroke.size * 0.25, dotPaint);
-        }
+        widthMultiplier = 2.0;
+        textureIntensity = 0.7;
+        grainDensity = 0.5;
+        grainSkip = 2;
         break;
-
       default:
-        final paint = Paint()
-          ..color = stroke.color
-          ..strokeWidth = stroke.size
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..style = PaintingStyle.stroke;
-        canvas.drawPath(path, paint);
+        widthMultiplier = 1.0;
+        textureIntensity = 0.2;
+        grainDensity = 0.15;
+        grainSkip = 4;
+    }
+
+    // Ana çizgi - yumuşak eğri ile
+    final path = _buildSmoothPath(pts);
+    final mainPaint = Paint()
+      ..color = stroke.color.withOpacity(stroke.opacity)
+      ..strokeWidth = stroke.size * widthMultiplier
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = true;
+    canvas.drawPath(path, mainPaint);
+
+    // Kurşun kalem taneleri (texture)
+    if (textureIntensity > 0.1) {
+      for (int i = 0; i < pts.length; i += grainSkip) {
+        if (i >= speeds.length) break;
+        final spread = stroke.size * widthMultiplier * textureIntensity;
+        final offset = Offset(
+          pts[i].dx + (rng.nextDouble() - 0.5) * spread,
+          pts[i].dy + (rng.nextDouble() - 0.5) * spread,
+        );
+        final grainPaint = Paint()
+          ..color = stroke.color.withOpacity(stroke.opacity * grainDensity * (1.0 - speeds[i] * 0.3))
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(offset, stroke.size * 0.08 + rng.nextDouble() * stroke.size * 0.08, grainPaint);
+      }
+    }
+
+    // Kenar yumuşatma (anti-aliasing için ince gölge)
+    if (widthMultiplier > 1.2) {
+      final edgePaint = Paint()
+        ..color = stroke.color.withOpacity(stroke.opacity * 0.15)
+        ..strokeWidth = stroke.size * widthMultiplier * 1.15
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.5);
+      canvas.drawPath(path, edgePaint);
     }
   }
 
-  void _drawBrushStroke(Canvas canvas, Path path, DrawStroke stroke) {
-    final random = Random(stroke.points.length.hashCode);
+  /// Fırça çizimi - farklı fırça efektleri
+  void _drawBrush(Canvas canvas, DrawStroke stroke, List<double> speeds) {
+    final pts = stroke.points;
+    final rng = Random(stroke.hashCode);
+    final path = _buildSmoothPath(pts);
 
     switch (stroke.subTool) {
       case 'Normal':
         final paint = Paint()
-          ..color = stroke.color
-          ..strokeWidth = stroke.size
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..style = PaintingStyle.stroke;
-        canvas.drawPath(path, paint);
-        break;
-
-      case 'Sulu Boya':
-        final mainPaint = Paint()
-          ..color = stroke.color.withOpacity(stroke.opacity * 0.5)
+          ..color = stroke.color.withOpacity(stroke.opacity)
           ..strokeWidth = stroke.size * 1.2
           ..strokeCap = StrokeCap.round
           ..strokeJoin = StrokeJoin.round
           ..style = PaintingStyle.stroke
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
-        canvas.drawPath(path, mainPaint);
-        for (int i = 0; i < stroke.points.length; i += 4) {
-          final offset = Offset(
-            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size * 2,
-            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size * 2,
+          ..isAntiAlias = true;
+        canvas.drawPath(path, paint);
+        // Yumuşak kenar
+        final edgePaint = Paint()
+          ..color = stroke.color.withOpacity(stroke.opacity * 0.3)
+          ..strokeWidth = stroke.size * 1.5
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.0);
+        canvas.drawPath(path, edgePaint);
+        break;
+
+      case 'Sulu Boya':
+        // Ana su efekti - bulanık ve şeffaf
+        final waterPaint = Paint()
+          ..color = stroke.color.withOpacity(stroke.opacity * 0.35)
+          ..strokeWidth = stroke.size * 1.8
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0)
+          ..isAntiAlias = true;
+        canvas.drawPath(path, waterPaint);
+        // Daha koyu iç çizgi
+        final corePaint = Paint()
+          ..color = stroke.color.withOpacity(stroke.opacity * 0.5)
+          ..strokeWidth = stroke.size * 0.8
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke;
+        canvas.drawPath(path, corePaint);
+        // Su sıçramaları
+        for (int i = 0; i < pts.length; i += 5) {
+          final splashOffset = Offset(
+            pts[i].dx + (rng.nextDouble() - 0.5) * stroke.size * 3,
+            pts[i].dy + (rng.nextDouble() - 0.5) * stroke.size * 3,
           );
           final splashPaint = Paint()
-            ..color = stroke.color.withOpacity(0.15)
+            ..color = stroke.color.withOpacity(0.08 + rng.nextDouble() * 0.08)
             ..style = PaintingStyle.fill;
-          canvas.drawCircle(offset, stroke.size * (0.5 + random.nextDouble()), splashPaint);
+          canvas.drawCircle(splashOffset, stroke.size * (0.3 + rng.nextDouble() * 0.7), splashPaint);
         }
         break;
 
       case 'Pastel':
+        // Pastel - grenli, yumuşak doku
         final mainPaint = Paint()
-          ..color = stroke.color.withOpacity(stroke.opacity * 0.8)
-          ..strokeWidth = stroke.size * 1.5
+          ..color = stroke.color.withOpacity(stroke.opacity * 0.75)
+          ..strokeWidth = stroke.size * 1.6
           ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..style = PaintingStyle.stroke;
+          ..style = PaintingStyle.stroke
+          ..isAntiAlias = true;
         canvas.drawPath(path, mainPaint);
-        for (int i = 0; i < stroke.points.length; i += 2) {
-          final offset = Offset(
-            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size,
-            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size,
+        // Grenli doku
+        for (int i = 0; i < pts.length; i += 2) {
+          final grainOffset = Offset(
+            pts[i].dx + (rng.nextDouble() - 0.5) * stroke.size * 1.2,
+            pts[i].dy + (rng.nextDouble() - 0.5) * stroke.size * 1.2,
           );
           final grainPaint = Paint()
-            ..color = stroke.color.withOpacity(0.3)
+            ..color = stroke.color.withOpacity(0.2 + rng.nextDouble() * 0.2)
             ..style = PaintingStyle.fill;
-          canvas.drawCircle(offset, stroke.size * 0.15, grainPaint);
+          canvas.drawCircle(grainOffset, stroke.size * 0.06 + rng.nextDouble() * stroke.size * 0.1, grainPaint);
         }
         break;
 
       case 'Yağlı Boya':
-        final mainPaint = Paint()
-          ..color = stroke.color
-          ..strokeWidth = stroke.size * 2.0
+        // Yağlı boya - kalın, opak,缸 dokulu
+        final thickPaint = Paint()
+          ..color = stroke.color.withOpacity(stroke.opacity * 0.9)
+          ..strokeWidth = stroke.size * 2.2
           ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..style = PaintingStyle.stroke;
-        canvas.drawPath(path, mainPaint);
-        for (int i = 0; i < stroke.points.length; i += 3) {
-          final offset = Offset(
-            stroke.points[i].dx + (random.nextDouble() - 0.5) * stroke.size * 0.5,
-            stroke.points[i].dy + (random.nextDouble() - 0.5) * stroke.size * 0.5,
+          ..style = PaintingStyle.stroke
+          ..isAntiAlias = true;
+        canvas.drawPath(path, thickPaint);
+        //缸 doku efekti
+        for (int i = 0; i < pts.length; i += 3) {
+          final texOffset = Offset(
+            pts[i].dx + (rng.nextDouble() - 0.5) * stroke.size * 0.6,
+            pts[i].dy + (rng.nextDouble() - 0.5) * stroke.size * 0.6,
           );
-          final texturePaint = Paint()
-            ..color = stroke.color.withOpacity(0.7)
+          final texPaint = Paint()
+            ..color = stroke.color.withOpacity(0.5 + rng.nextDouble() * 0.3)
             ..style = PaintingStyle.fill;
-          canvas.drawCircle(offset, stroke.size * 0.3, texturePaint);
+          canvas.drawCircle(texOffset, stroke.size * 0.2 + rng.nextDouble() * stroke.size * 0.15, texPaint);
         }
         break;
 
       case 'Kuru Boya':
-        for (int i = 0; i < stroke.points.length - 1; i += 2) {
-          if (i + 1 < stroke.points.length) {
-            final segmentPath = Path()
-              ..moveTo(stroke.points[i].dx, stroke.points[i].dy)
-              ..lineTo(stroke.points[i + 1].dx, stroke.points[i + 1].dy);
-            final segmentPaint = Paint()
-              ..color = stroke.color.withOpacity(stroke.opacity * (0.5 + random.nextDouble() * 0.5))
-              ..strokeWidth = stroke.size * (0.8 + random.nextDouble() * 0.4)
+        // Kuru fırça - kesik, dokulu çizgiler
+        for (int i = 0; i < pts.length - 1; i++) {
+          if (rng.nextDouble() > 0.3) { // %30 boşluk bırak
+            final segPath = Path()
+              ..moveTo(pts[i].dx, pts[i].dy)
+              ..lineTo(pts[i + 1].dx, pts[i + 1].dy);
+            final segPaint = Paint()
+              ..color = stroke.color.withOpacity(stroke.opacity * (0.4 + rng.nextDouble() * 0.5))
+              ..strokeWidth = stroke.size * (0.7 + rng.nextDouble() * 0.6)
               ..strokeCap = StrokeCap.round
               ..style = PaintingStyle.stroke;
-            canvas.drawPath(segmentPath, segmentPaint);
+            canvas.drawPath(segPath, segPaint);
           }
         }
         break;
 
       default:
         final paint = Paint()
-          ..color = stroke.color
-          ..strokeWidth = stroke.size
+          ..color = stroke.color.withOpacity(stroke.opacity)
+          ..strokeWidth = stroke.size * 1.2
           ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..style = PaintingStyle.stroke;
+          ..style = PaintingStyle.stroke
+          ..isAntiAlias = true;
         canvas.drawPath(path, paint);
     }
+  }
+
+  /// Yumuşak çizgi (varsayılan)
+  void _drawSmoothLine(Canvas canvas, DrawStroke stroke, List<double> speeds) {
+    final path = _buildSmoothPath(stroke.points);
+    final paint = Paint()
+      ..color = stroke.color.withOpacity(stroke.opacity)
+      ..strokeWidth = stroke.size
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = true;
+    canvas.drawPath(path, paint);
   }
 
   @override

@@ -258,18 +258,29 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                       const SizedBox(height: 16),
 
-                      // Numaralı Boyama Butonu
+                      // Numaralı Boyama Butonu - Kategorilerden seçim yapar
                       GestureDetector(
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => const NumberedColoringPage(
-                                categoryName: 'Boyama Kitabı',
-                                categoryIcon: '🎨',
-                                categoryColor: Color(0xFFFF6B6B),
+                                categoryName: 'Çiftlik',
+                                categoryIcon: '🐄',
+                                categoryColor: Color(0xFF4CAF50),
                                 initialImageIndex: 0,
-                                imagePaths: [],
+                                imagePaths: [
+                                  'assets/images/ciftlik/ciftlik_1.png',
+                                  'assets/images/ciftlik/ciftlik_2.png',
+                                  'assets/images/ciftlik/ciftlik_3.png',
+                                  'assets/images/ciftlik/ciftlik_4.png',
+                                  'assets/images/ciftlik/ciftlik_5.png',
+                                  'assets/images/ciftlik/ciftlik_6.png',
+                                  'assets/images/ciftlik/ciftlik_7.png',
+                                  'assets/images/ciftlik/ciftlik_8.png',
+                                  'assets/images/ciftlik/ciftlik_9.png',
+                                  'assets/images/ciftlik/ciftlik_10.png',
+                                ],
                               ),
                             ),
                           );
