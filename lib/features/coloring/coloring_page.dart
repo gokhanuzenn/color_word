@@ -507,6 +507,7 @@ class _ColoringPageState extends State<ColoringPage>
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
+      // İki parmakla zoom
       final newScale = (_lastScale * details.scale).clamp(1.0, 5.0);
       final focalDelta = details.focalPoint - _lastFocalPoint;
       setState(() {
@@ -520,12 +521,12 @@ class _ColoringPageState extends State<ColoringPage>
         return;
       }
 
-      // Zoom yapıldıysa tek parmakla her zaman kaydır (pan)
-      // Sadece 1.0x zoom'da çizim yapılır
-      if (_scale > 1.05) {
-        final delta = details.focalPoint - _lastFocalPoint;
+      final delta = (details.focalPoint - _lastFocalPoint).distance;
+      // Zoom varsa tek parmakla kaydır, yoksa çiz
+      if (_scale > 1.1 || (_isPanning && _scale > 1.0)) {
+        final panDelta = details.focalPoint - _lastFocalPoint;
         setState(() {
-          _offset = _offset + delta;
+          _offset = _offset + panDelta;
         });
         _lastFocalPoint = details.focalPoint;
       } else {
@@ -535,6 +536,7 @@ class _ColoringPageState extends State<ColoringPage>
         } else {
           _continueDrawing(drawingPoint);
         }
+        _lastFocalPoint = details.focalPoint;
       }
     }
   }
@@ -675,38 +677,44 @@ class _ColoringPageState extends State<ColoringPage>
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: GestureDetector(
-            onScaleStart: _onScaleStart,
-            onScaleUpdate: _onScaleUpdate,
-            onScaleEnd: _onScaleEnd,
-            child: Stack(
-              children: [
-                // Beyaz arka plan - şeffaf resimler için
-                Positioned.fill(child: ColoredBox(color: Colors.white)),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return GestureDetector(
+                onScaleStart: _onScaleStart,
+                onScaleUpdate: _onScaleUpdate,
+                onScaleEnd: _onScaleEnd,
+                child: Stack(
+                  children: [
+                    // Beyaz arka plan
+                    Positioned.fill(child: ColoredBox(color: Colors.white)),
 
-                // Zoom + Pan ile ölçeklendirme
-                Transform(
-                  alignment: Alignment.topLeft,
-                  transform: Matrix4.identity()
-                    ..translate(_offset.dx, _offset.dy)
-                    ..scale(_scale, _scale),
-                  child: Stack(
-                    children: [
-                      // Arka plan resmi
-                      if (!widget.isBlankCanvas)
-                        Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
-                      if (widget.isBlankCanvas)
-                        const Positioned.fill(child: ColoredBox(color: Colors.white)),
+                    // Zoom + Pan ile ölçeklendirme
+                    Transform(
+                      alignment: Alignment.topLeft,
+                      transform: Matrix4.identity()
+                        ..translate(_offset.dx, _offset.dy)
+                        ..scale(_scale, _scale),
+                      child: SizedBox(
+                        width: constraints.maxWidth,
+                        height: constraints.maxHeight,
+                        child: Stack(
+                          children: [
+                            // Arka plan resmi
+                            if (!widget.isBlankCanvas)
+                              Positioned.fill(child: IgnorePointer(child: _buildImageWithFallback())),
+                            if (widget.isBlankCanvas)
+                              const Positioned.fill(child: ColoredBox(color: Colors.white)),
 
-                      // Çizim katmanı
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
+                            // Çizim katmanı
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: StrokePainter(strokes: _strokes, currentStroke: _currentStroke),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
 
                 // Sticker'lar (Transform dışında)
                 ..._placedStickers.asMap().entries.map((entry) {
@@ -820,14 +828,16 @@ class _ColoringPageState extends State<ColoringPage>
                         style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
                       ),
                     ),
-                  ),
-              ],
+                  ),              ],
             ),
-          ),
+          );
+        },
         ),
       ),
-    );
+    ),
+  );
   }
+
 
   Widget _buildImageWithFallback() {
     if (widget.imagePaths.isEmpty) {
@@ -1276,51 +1286,43 @@ class StrokePainter extends CustomPainter {
     return path;
   }
 
-  /// Kalem çizimi - her varyasyon için farklı doku
   void _drawPencil(Canvas canvas, DrawStroke stroke, List<double> speeds) {
     final pts = stroke.points;
     final rng = Random(stroke.hashCode);
 
     // Kalem tipine göre parametreler
     double widthMultiplier;
-    double textureIntensity;
     double grainDensity;
     int grainSkip;
 
     switch (stroke.subTool) {
       case 'HB':
         widthMultiplier = 0.7;
-        textureIntensity = 0.1;
         grainDensity = 0.05;
         grainSkip = 6;
         break;
       case '2B':
         widthMultiplier = 1.0;
-        textureIntensity = 0.2;
         grainDensity = 0.15;
         grainSkip = 4;
         break;
       case '4B':
         widthMultiplier = 1.3;
-        textureIntensity = 0.35;
         grainDensity = 0.25;
         grainSkip = 3;
         break;
       case '6B':
         widthMultiplier = 1.6;
-        textureIntensity = 0.5;
         grainDensity = 0.35;
         grainSkip = 2;
         break;
       case '8B':
         widthMultiplier = 2.0;
-        textureIntensity = 0.7;
         grainDensity = 0.5;
         grainSkip = 2;
         break;
       default:
         widthMultiplier = 1.0;
-        textureIntensity = 0.2;
         grainDensity = 0.15;
         grainSkip = 4;
     }
@@ -1337,10 +1339,10 @@ class StrokePainter extends CustomPainter {
     canvas.drawPath(path, mainPaint);
 
     // Kurşun kalem taneleri (texture)
-    if (textureIntensity > 0.1) {
+    if (grainDensity > 0.1) {
       for (int i = 0; i < pts.length; i += grainSkip) {
         if (i >= speeds.length) break;
-        final spread = stroke.size * widthMultiplier * textureIntensity;
+        final spread = stroke.size * widthMultiplier * 0.3;
         final offset = Offset(
           pts[i].dx + (rng.nextDouble() - 0.5) * spread,
           pts[i].dy + (rng.nextDouble() - 0.5) * spread,
@@ -1350,18 +1352,6 @@ class StrokePainter extends CustomPainter {
           ..style = PaintingStyle.fill;
         canvas.drawCircle(offset, stroke.size * 0.08 + rng.nextDouble() * stroke.size * 0.08, grainPaint);
       }
-    }
-
-    // Kenar yumuşatma (anti-aliasing için ince gölge)
-    if (widthMultiplier > 1.2) {
-      final edgePaint = Paint()
-        ..color = stroke.color.withOpacity(stroke.opacity * 0.15)
-        ..strokeWidth = stroke.size * widthMultiplier * 1.15
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.5);
-      canvas.drawPath(path, edgePaint);
     }
   }
 
