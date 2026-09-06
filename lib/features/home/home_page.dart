@@ -10,6 +10,7 @@ import '../settings/settings_page.dart';
 import '../settings/admin_page.dart';
 import '../score/scoreboard_page.dart';
 import '../educational/educational_page.dart';
+import '../coloring/saved_drawings_page.dart';
 import '../../l10n/app_localizations.dart';
 import '../../data/services/score_service.dart';
 import '../../data/services/ad_service.dart';
@@ -308,6 +309,66 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                         ),
                       ).animate().fadeIn(delay: 750.ms, duration: 600.ms)
+                          .slideY(begin: 0.3),
+
+                      const SizedBox(height: 16),
+
+                      // Kayıtlı Çizimler Butonu
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SavedDrawingsPage(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFFF9800), Color(0xFFF57C00)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF9800).withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('💾', style: TextStyle(fontSize: 20)),
+                              const SizedBox(width: 8),
+                              const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Kayıtlarım',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Kaydettiğin çizimlere ulaş',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Spacer(),
+                              const Icon(Icons.chevron_right, color: Colors.white),
+                            ],
+                          ),
+                        ),
+                      ).animate().fadeIn(delay: 800.ms, duration: 600.ms)
                           .slideY(begin: 0.3),
 
                       const SizedBox(height: 16),
