@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/widgets/neubrutal_button.dart';
 import '../../core/widgets/neubrutal_card.dart';
+import '../../core/widgets/parental_gate.dart';
 import '../../data/services/custom_image_service.dart';
 import 'premium_page.dart';
 
@@ -296,13 +297,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               backgroundColor: Colors.orange,
               width: double.infinity,
               height: 60,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PremiumPage(),
-                  ),
-                );
+              onPressed: () async {
+                final confirmed = await ParentalGate.show(context);
+                if (confirmed && context.mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PremiumPage(),
+                    ),
+                  );
+                }
               },
             ).animate().fadeIn(delay: 300.ms, duration: 400.ms),
 

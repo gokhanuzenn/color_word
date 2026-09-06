@@ -247,11 +247,16 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
   void _handleTap(Offset tapPosition, List<Offset> dots) {
     if (_isCompleted) return;
 
+    final puzzle = _puzzles[_currentPuzzleIndex];
+    final solution = puzzle['solution'] as List<int>;
+
+    // Solution dizisindeki sıradaki noktayı bul
+    final expectedDotIndex = solution[_connectedDots.length];
+
     int? nearestIndex;
     double minDistance = 50;
 
     for (int i = 0; i < dots.length; i++) {
-      if (_connectedDots.contains(i)) continue;
       final distance = (tapPosition - dots[i]).distance;
       if (distance < minDistance) {
         minDistance = distance;
@@ -259,14 +264,14 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
       }
     }
 
-    if (nearestIndex != null && nearestIndex == _nextDotIndex) {
+    if (nearestIndex != null && nearestIndex == expectedDotIndex) {
       HapticHelper.lightImpact();
       setState(() {
         _connectedDots.add(nearestIndex!);
-        _nextDotIndex++;
+        _nextDotIndex = _connectedDots.length;
       });
 
-      if (_nextDotIndex >= dots.length) {
+      if (_connectedDots.length >= solution.length) {
         setState(() => _isCompleted = true);
         HapticHelper.heavyImpact();
         _showCelebration();
@@ -276,7 +281,7 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ Şimdi ${_nextDotIndex + 1}. noktaya tıkla!'),
+          content: Text('❌ Şimdi ${solution[_connectedDots.length] + 1}. noktaya tıkla!'),
           backgroundColor: Colors.orange,
           duration: const Duration(milliseconds: 800),
         ),

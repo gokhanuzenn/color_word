@@ -74,6 +74,7 @@ class _MemoryGamePageState extends State<MemoryGamePage> {
 
         // Eşleşme kontrolü
         Future.delayed(const Duration(milliseconds: 800), () {
+          if (!mounted) return;
           if (_cardValues[_firstFlippedIndex!] == _cardValues[_secondFlippedIndex!]) {
             // Eşleşti!
             HapticHelper.mediumImpact();

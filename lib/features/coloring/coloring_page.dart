@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -102,11 +103,18 @@ class _ColoringPageState extends State<ColoringPage>
   double _opacity = 1.0;
   late AnimationController _sparkleController;
 
+  Timer? _autoSaveTimer;
+
   // Zoom ve Pan - focal point merkezli
   double _scale = 1.0;
   Offset _offset = Offset.zero;
   double _gestureStartScale = 1.0;
   Offset _gestureStartOffset = Offset.zero;
+  Offset _gestureStartFocalPoint = Offset.zero;
+  double _gestureBaseScale = 1.0;
+  int _lastPointerCount = 0;
+  DateTime? _lastZoomEndTime;
+  Size _canvasSize = Size.zero;
 
   @override
   void initState() {
@@ -183,19 +191,24 @@ class _ColoringPageState extends State<ColoringPage>
 
   @override
   void dispose() {
+    _autoSaveTimer?.cancel();
     _sparkleController.dispose();
     super.dispose();
   }
 
-  /// Ekran koordinatını çizim koordinatına çevir
-  Offset _screenToDrawing(Offset screenPoint) {
-    final RenderBox? renderBox =
-        _drawingKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return screenPoint;
-    final localPoint = renderBox.globalToLocal(screenPoint);
+  /// Ekran veya yerel koordinatı çizim koordinatına çevir
+  Offset _screenToDrawing(Offset point, {bool isLocal = false}) {
+    Offset localPoint = point;
+    if (!isLocal) {
+      final RenderBox? renderBox =
+          _drawingKey.currentContext?.findRenderObject() as RenderBox?;
+      if (renderBox != null) {
+        localPoint = renderBox.globalToLocal(point);
+      }
+    }
     // Transform: translate(offset) scale(scale) with Alignment.topLeft
-    // screenPos = offset + drawingPos * scale
-    // drawingPos = (screenPos - offset) / scale
+    // localPoint = offset + drawingPos * scale
+    // drawingPos = (localPoint - offset) / scale
     return Offset(
       (localPoint.dx - _offset.dx) / _scale,
       (localPoint.dy - _offset.dy) / _scale,
@@ -514,13 +527,11 @@ class _ColoringPageState extends State<ColoringPage>
   }
 
   void _startAutoSave() {
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(minutes: 2));
+    _autoSaveTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
       if (_hasUnsavedChanges && _strokes.isNotEmpty) {
         _saveDrawingSilently();
         _hasUnsavedChanges = false;
       }
-      return true;
     });
   }
 
@@ -540,37 +551,79 @@ class _ColoringPageState extends State<ColoringPage>
   }
 
   // === ZOOM + PAN + ÇİZİM ===
-  // 1 parmak = HER ZAMAN çiz
-  // 2 parmak = HER ZAMAN zoom + pan (focal point merkezli)
+  // 1 parmak = Çizim
+  // 2 parmak = Pürüzsüz Zoom + Pan (localFocalPoint merkezli & sınır korumalı)
 
   void _onScaleStart(ScaleStartDetails details) {
     _gestureStartScale = _scale;
     _gestureStartOffset = _offset;
+    _gestureStartFocalPoint = details.localFocalPoint;
+    _gestureBaseScale = 1.0;
+    _lastPointerCount = details.pointerCount;
   }
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
-    if (details.pointerCount == 2) {
-      // İKİ PARMAK: ZOOM + PAN
-      if (_isDrawing) _endDrawing();
+    final pointerCount = details.pointerCount;
 
-      final newScale = (_gestureStartScale * details.scale).clamp(1.0, 5.0);
-      final focalPoint = details.focalPoint;
+    if (pointerCount == 2) {
+      // İKİ PARMAK: ZOOM + PAN
+      // Yanlışlıkla başlayan tek parmaklık çizimi temizle (leke/çizik oluşmasın)
+      if (_isDrawing) {
+        _currentStroke = null;
+        _isDrawing = false;
+      }
+
+      // Parmak sayısı 1'den 2'ye yeni geçtiyse başlangıç referansını sıfırla
+      if (_lastPointerCount != 2) {
+        _gestureStartScale = _scale;
+        _gestureStartOffset = _offset;
+        _gestureStartFocalPoint = details.localFocalPoint;
+        _gestureBaseScale = details.scale;
+        _lastPointerCount = 2;
+        return;
+      }
+
+      final scaleRatio = _gestureBaseScale > 0 ? (details.scale / _gestureBaseScale) : 1.0;
+      final newScale = (_gestureStartScale * scaleRatio).clamp(1.0, 5.0);
+
+      // Odak noktasına göre yeni ofseti hesapla (yerel koordinatlarla)
       final focalDrawing = Offset(
-        (focalPoint.dx - _gestureStartOffset.dx) / _gestureStartScale,
-        (focalPoint.dy - _gestureStartOffset.dy) / _gestureStartScale,
+        (_gestureStartFocalPoint.dx - _gestureStartOffset.dx) / _gestureStartScale,
+        (_gestureStartFocalPoint.dy - _gestureStartOffset.dy) / _gestureStartScale,
       );
-      final newOffset = Offset(
-        focalPoint.dx - focalDrawing.dx * newScale,
-        focalPoint.dy - focalDrawing.dy * newScale,
-      );
+
+      double targetOffsetX = details.localFocalPoint.dx - focalDrawing.dx * newScale;
+      double targetOffsetY = details.localFocalPoint.dy - focalDrawing.dy * newScale;
+
+      // Tuvalin ekran dışına kaçmasını engelle (Clamping)
+      if (_canvasSize.width > 0 && _canvasSize.height > 0) {
+        final minX = _canvasSize.width * (1.0 - newScale);
+        final minY = _canvasSize.height * (1.0 - newScale);
+        targetOffsetX = targetOffsetX.clamp(minX, 0.0);
+        targetOffsetY = targetOffsetY.clamp(minY, 0.0);
+      }
 
       setState(() {
         _scale = newScale;
-        _offset = newOffset;
+        _offset = Offset(targetOffsetX, targetOffsetY);
       });
-    } else if (details.pointerCount == 1) {
+    } else if (pointerCount == 1) {
+      // Az önce zoom yapıldıysa ve parmaklardan biri kalktıysa hemen çizim başlatma (leke engeli)
+      if (_lastPointerCount == 2) {
+        _lastZoomEndTime = DateTime.now();
+        _lastPointerCount = 1;
+        return;
+      }
+
+      if (_lastZoomEndTime != null &&
+          DateTime.now().difference(_lastZoomEndTime!).inMilliseconds < 250) {
+        return;
+      }
+
+      _lastPointerCount = 1;
+
       // BİR PARMAK: HER ZAMAN ÇİZ
-      final drawingPoint = _screenToDrawing(details.focalPoint);
+      final drawingPoint = _screenToDrawing(details.localFocalPoint, isLocal: true);
       if (!_isDrawing) {
         _startDrawing(drawingPoint);
       } else {
@@ -580,6 +633,10 @@ class _ColoringPageState extends State<ColoringPage>
   }
 
   void _onScaleEnd(ScaleEndDetails details) {
+    if (_lastPointerCount == 2) {
+      _lastZoomEndTime = DateTime.now();
+    }
+    _lastPointerCount = 0;
     if (_isDrawing) _endDrawing();
   }
 
@@ -695,6 +752,7 @@ class _ColoringPageState extends State<ColoringPage>
           borderRadius: BorderRadius.circular(12),
           child: LayoutBuilder(
             builder: (context, constraints) {
+              _canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onScaleStart: _onScaleStart,

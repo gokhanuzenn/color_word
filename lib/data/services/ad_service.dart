@@ -152,17 +152,12 @@ class AdService {
     }
   }
 
-  /// Periyodik reklamları başlat (her 2 dakika)
+  /// Periyodik reklamlar COPPA uyumlu olarak kaldırıldı
+  /// Reklamlar sadece doğal geçiş noktalarında gösterilir
   void startPeriodicAds() {
-    _periodicTimer?.cancel();
-    _periodicTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
-      if (shouldShowAds() && _lastInterstitialTime != null) {
-        final elapsed = DateTime.now().difference(_lastInterstitialTime!);
-        if (elapsed.inMinutes >= 2) {
-          showInterstitialAd();
-        }
-      }
-    });
+    // COPPA ve Google Play Families Policy gereği
+    // Çocuk uygulamalarında zamanlayıcı ile reklam gösterilmez
+    // Reklamlar sadece sayfa değişimlerinde ve doğal geçişlerde gösterilir
   }
 
   void stopPeriodicAds() {

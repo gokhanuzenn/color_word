@@ -7,6 +7,7 @@ import 'core/utils/haptic_helper.dart';
 import 'data/services/database_service.dart';
 import 'data/services/score_service.dart';
 import 'data/services/ad_service.dart';
+import 'data/services/custom_image_service.dart';
 import 'features/splash/splash_screen.dart';
 import 'l10n/app_localizations.dart';
 
@@ -33,6 +34,13 @@ void main() async {
     await ScoreService.instance.init();
   } catch (e) {
     // Skor hatası, devam et
+  }
+
+  // Özel resim servisini başlat
+  try {
+    await CustomImageService.instance.init();
+  } catch (e) {
+    // Özel resim hatası, devam et
   }
 
   // Reklam servisini başlat

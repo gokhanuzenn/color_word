@@ -34,7 +34,7 @@ class CategoriesPage extends StatelessWidget {
     CategoryItem(id: 'doga_gokyuzu', name: 'Doğa Gökyüzü', icon: '🌤️', color: Color(0xFF29B6F6), imageCount: 42),
     CategoryItem(id: 'emoji', name: 'Emoji', icon: '😊', color: Color(0xFFFFC107), imageCount: 90),
     CategoryItem(id: 'erkek_karakter', name: 'Erkek Karakter', icon: '👦', color: Color(0xFF42A5F5), imageCount: 50),
-    CategoryItem(id: 'harfler', name: 'Harfler', icon: '🔤', color: Color(0xFF26C6DA), imageCount: 30),
+    CategoryItem(id: 'harfler', name: 'Harfler', icon: '🔤', color: Color(0xFF26C6DA), imageCount: 26),
     CategoryItem(id: 'insaat', name: 'İnşaat', icon: '🏗️', color: Color(0xFFFFA726), imageCount: 80),
     CategoryItem(id: 'kahraman', name: 'Kahramanlar', icon: '🦸', color: Color(0xFFEF5350), imageCount: 37),
     CategoryItem(id: 'kiz_karakter', name: 'Kız Karakter', icon: '👧', color: Color(0xFFEC407A), imageCount: 50),
