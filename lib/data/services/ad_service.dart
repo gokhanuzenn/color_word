@@ -48,17 +48,17 @@ class AdService {
       await MobileAds.instance.initialize();
       _isInitialized = true;
       
-      // Debug modunda test reklamları için
-      if (kDebugMode) {
-        try {
-          await MobileAds.instance.updateRequestConfiguration(
-            RequestConfiguration(
-              testDeviceIds: ['EMULATOR'],
-            ),
-          );
-        } catch (e) {
-          // Test cihazı ayarlanamadı, devam et
-        }
+      // COPPA ve Google Play Aile Politikası gereği çocuk odaklı reklam yapılandırması
+      try {
+        await MobileAds.instance.updateRequestConfiguration(
+          RequestConfiguration(
+            tagForChildDirectedTreatment: TagForChildDirectedTreatment.yes,
+            maxAdContentRating: MaxAdContentRating.g,
+            testDeviceIds: kDebugMode ? ['EMULATOR'] : null,
+          ),
+        );
+      } catch (e) {
+        // Yapılandırma hatası, devam et
       }
       
       // Reklam yükle
@@ -165,9 +165,17 @@ class AdService {
     _periodicTimer = null;
   }
 
-  /// Interstitial reklam göster
+  /// Interstitial reklam göster (en az 60 saniye arayla)
   void showInterstitialAd({VoidCallback? onAdClosed}) {
     if (_interstitialAd != null && shouldShowAds()) {
+      // Çocuk politikası ve kullanıcı deneyimi gereği en az 60 saniye cooldown
+      if (_lastInterstitialTime != null) {
+        final elapsed = DateTime.now().difference(_lastInterstitialTime!);
+        if (elapsed.inSeconds < 60) {
+          onAdClosed?.call();
+          return;
+        }
+      }
       _lastInterstitialTime = DateTime.now();
       _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
         onAdDismissedFullScreenContent: (ad) {

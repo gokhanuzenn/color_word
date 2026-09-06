@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/widgets/neubrutal_button.dart';
+import '../../core/widgets/parental_gate.dart';
 import '../../core/widgets/app_logo.dart';
 import '../categories/categories_page.dart';
 import '../settings/settings_page.dart';
@@ -70,13 +71,17 @@ class _HomePageState extends ConsumerState<HomePage> {
     _lastTapTime = now;
     _logoTapCount++;
 
-    // 7 kez tıkladıysa admin sayfasına git
+    // 7 kez tıkladıysa ebeveyn onayı ile admin sayfasına git
     if (_logoTapCount >= 7) {
       _logoTapCount = 0;
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const AdminPage()),
-      );
+      ParentalGate.show(context).then((verified) {
+        if (verified && mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminPage()),
+          );
+        }
+      });
     }
   }
 
@@ -378,13 +383,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                         backgroundColor: AppColors.buttonSecondary,
                         width: double.infinity,
                         height: 60,
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const SettingsPage(),
-                            ),
-                          );
+                        onPressed: () async {
+                          final verified = await ParentalGate.show(context);
+                          if (verified && context.mounted) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const SettingsPage(),
+                              ),
+                            );
+                          }
                         },
                       ).animate().fadeIn(delay: 800.ms, duration: 600.ms)
                           .slideY(begin: 0.3),

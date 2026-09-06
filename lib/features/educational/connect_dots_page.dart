@@ -31,7 +31,7 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
         Offset(40, 130),   // 8
         Offset(115, 130),  // 9
       ],
-      'solution': [0, 9, 2, 4, 6, 8, 1, 3, 5, 7, 0],
+      'solution': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0],
     },
     {
       'name': 'Ev',
@@ -131,6 +131,10 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
     final puzzle = _puzzles[_currentPuzzleIndex];
     final dots = puzzle['dots'] as List<Offset>;
     final color = puzzle['color'] as Color;
+    final solution = puzzle['solution'] as List<int>;
+    final expectedDotIndex = _connectedDots.length < solution.length
+        ? solution[_connectedDots.length]
+        : -1;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -146,7 +150,7 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 4))],
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -158,8 +162,10 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
                     children: [
                       Text(puzzle['name'], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                       Text(
-                        '☝️ ${_nextDotIndex + 1}. noktaya dokunarak çizgi çek',
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                        _isCompleted
+                            ? '🎉 Harika! Şekil tamamlandı'
+                            : '☝️ ${expectedDotIndex >= 0 ? expectedDotIndex + 1 : 1}. noktaya dokunarak çizgi çek',
+                        style: TextStyle(fontSize: 13, color: _isCompleted ? Colors.green : Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -187,9 +193,10 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
                       painter: ConnectDotsPainter(
                         dots: dots,
                         connectedDots: _connectedDots,
-                        nextDotIndex: _nextDotIndex,
+                        nextDotIndex: expectedDotIndex,
                         color: color,
                         isCompleted: _isCompleted,
+                        solution: solution,
                       ),
                     ),
                   ),
@@ -393,6 +400,7 @@ class ConnectDotsPainter extends CustomPainter {
   final int nextDotIndex;
   final Color color;
   final bool isCompleted;
+  final List<int> solution;
 
   ConnectDotsPainter({
     required this.dots,
@@ -400,6 +408,7 @@ class ConnectDotsPainter extends CustomPainter {
     required this.nextDotIndex,
     required this.color,
     required this.isCompleted,
+    required this.solution,
   });
 
   @override
@@ -446,10 +455,17 @@ class ConnectDotsPainter extends CustomPainter {
       // İç çember
       canvas.drawCircle(dot, isNext ? 14 : 10, Paint()..color = dotColor);
 
-      // Sayı etiketi
+      // Sayı etiketi - solution sırasına göre numara
+      int displayNumber = 0;
+      for (int s = 0; s < solution.length; s++) {
+        if (solution[s] == i) {
+          displayNumber = s + 1;
+          break;
+        }
+      }
       final textPainter = TextPainter(
         text: TextSpan(
-          text: '${i + 1}',
+          text: '$displayNumber',
           style: TextStyle(
             fontSize: isNext ? 16 : 12,
             fontWeight: FontWeight.w800,

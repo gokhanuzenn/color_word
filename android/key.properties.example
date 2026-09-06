@@ -1,0 +1,13 @@
+# Android Release Keystore Yapılandırma Şablonu
+# Bu dosyayı 'key.properties' olarak aynı dizine (android/key.properties) kopyalayın
+# ve kendi anahtar bilgilerinizi girin.
+#
+# Keystore oluşturmak için terminalde şu komutu çalıştırabilirsiniz:
+# keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# Oluşturulan 'upload-keystore.jks' dosyasını 'android/app/' klasörüne koyun.
+
+storePassword=BURAYA_STORE_SIFRESI
+keyPassword=BURAYA_KEY_SIFRESI
+keyAlias=upload
+storeFile=../app/upload-keystore.jks

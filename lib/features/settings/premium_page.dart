@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/widgets/parental_gate.dart';
 import '../../data/services/purchase_service.dart';
 
 /// Premium sayfası - $2.99 ile reklamları kaldır
@@ -41,6 +42,9 @@ class _PremiumPageState extends State<PremiumPage> {
 
   /// Gerçek satın alma işlemi ($2.99)
   Future<void> _buyPremium() async {
+    final confirmed = await ParentalGate.show(context);
+    if (!confirmed || !mounted) return;
+
     setState(() {
       _isLoading = true;
       _message = null;
