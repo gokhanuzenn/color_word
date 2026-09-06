@@ -173,10 +173,20 @@ class PurchaseService {
     if (value) {
       await prefs.setString('premium_activated_at', DateTime.now().toIso8601String());
     }
-  }
-
-  /// Promo kodu doğrula
+  }  /// Promo kodu doğrula (sadece 1 kez kullanılabilir)
   Future<bool> validatePromoCode(String code) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Daha önce kullanılmış promo kodlarını kontrol et
+    final usedCodes = prefs.getStringList('used_promo_codes') ?? [];
+    final codeUpper = code.trim().toUpperCase();
+    
+    // Bu kod daha önce kullanılmış mı?
+    if (usedCodes.contains(codeUpper)) {
+      debugPrint('❌ Bu promo kodu zaten kullanılmış: $codeUpper');
+      return false;
+    }
+    
     // Geçerli promo kodları
     final validCodes = {
       'COLORWORD2024': 'Genel kod',
@@ -190,11 +200,15 @@ class PurchaseService {
       '2026.COLOR.WORD.GOKHAN.2026!!': 'Özel promosyon kodu',
     };
 
-    if (validCodes.containsKey(code.toUpperCase())) {
+    if (validCodes.containsKey(codeUpper)) {
+      // Kodu kullanılmış olarak işaretle
+      usedCodes.add(codeUpper);
+      await prefs.setStringList('used_promo_codes', usedCodes);
+      
       await setPremium(true);
-      debugPrint('✅ Promo kodu geçerli: ${validCodes[code.toUpperCase()]}');
+      debugPrint('✅ Promo kodu geçerli ve kullanıldı: ${validCodes[codeUpper]}');
       return true;
-    }
+    } 
     
     debugPrint('❌ Geçersiz promo kodu: $code');
     return false;
