@@ -89,7 +89,6 @@ class _ColoringPageState extends State<ColoringPage>
   bool _showSubTools = false;
   bool _isTextMode = false;
   bool _isDrawing = false;
-  bool _isDropperMode = false;
   DrawStroke? _currentStroke;
 
   bool _stickerMode = false;
@@ -165,17 +164,6 @@ class _ColoringPageState extends State<ColoringPage>
 
     if (_isTextMode) {
       _showTextInputDialog(drawingPoint);
-      return;
-    }
-
-    if (_isDropperMode) {
-      // Renk dropper - dokunulan yerden renk al
-      HapticHelper.selectionClick();
-      setState(() {
-        _selectedColor = _getDrawingColorAt(drawingPoint);
-        _isDropperMode = false;
-        _selectedTool = 'kalem';
-      });
       return;
     }
 
@@ -497,33 +485,21 @@ class _ColoringPageState extends State<ColoringPage>
   // 2 parmak = HER ZAMAN zoom + pan (focal point merkezli)
 
   void _onScaleStart(ScaleStartDetails details) {
-    // Gesture başlangıç değerlerini kaydet
     _gestureStartScale = _scale;
     _gestureStartOffset = _offset;
   }
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
-      // === İKİ PARMAK: ZOOM + PAN ===
-      // Mevcut çizimi bitir
-      if (_isDrawing) {
-        _endDrawing();
-      }
+      // İKİ PARMAK: ZOOM + PAN
+      if (_isDrawing) _endDrawing();
 
-      // Yeni scale hesapla
       final newScale = (_gestureStartScale * details.scale).clamp(1.0, 5.0);
-
-      // Focal point - ekran koordinatı
       final focalPoint = details.focalPoint;
-
-      // Gesture başlangıcındaki focal point'in çizim koordinatı
-      // (Gesture başlangıcında offset ve scale sabitti)
       final focalDrawing = Offset(
         (focalPoint.dx - _gestureStartOffset.dx) / _gestureStartScale,
         (focalPoint.dy - _gestureStartOffset.dy) / _gestureStartScale,
       );
-
-      // Yeni offset - focal point aynı ekran pozisyonunda kalsın
       final newOffset = Offset(
         focalPoint.dx - focalDrawing.dx * newScale,
         focalPoint.dy - focalDrawing.dy * newScale,
@@ -534,7 +510,7 @@ class _ColoringPageState extends State<ColoringPage>
         _offset = newOffset;
       });
     } else if (details.pointerCount == 1) {
-      // === BİR PARMAK: HER ZAMAN ÇİZ ===
+      // BİR PARMAK: HER ZAMAN ÇİZ
       final drawingPoint = _screenToDrawing(details.focalPoint);
       if (!_isDrawing) {
         _startDrawing(drawingPoint);
@@ -545,9 +521,7 @@ class _ColoringPageState extends State<ColoringPage>
   }
 
   void _onScaleEnd(ScaleEndDetails details) {
-    if (_isDrawing) {
-      _endDrawing();
-    }
+    if (_isDrawing) _endDrawing();
   }
 
   void _resetZoom() {
@@ -557,22 +531,7 @@ class _ColoringPageState extends State<ColoringPage>
     });
   }
 
-  Color _getDrawingColorAt(Offset point) {
-    // Yakın çevredeki en çok kullanılan rengi bul
-    Color closestColor = _selectedColor;
-    double minDist = double.infinity;
-    for (final stroke in _strokes.reversed) {
-      for (final p in stroke.points) {
-        final dist = (p - point).distance;
-        if (dist < minDist && dist < stroke.size * 2) {
-          minDist = dist;
-          closestColor = stroke.color;
-        }
-      }
-      if (minDist < 5) break;
-    }
-    return closestColor;
-  }
+
 
   // === ANA SAYFA ===
 
@@ -1007,7 +966,6 @@ class _ColoringPageState extends State<ColoringPage>
                 _isErasing = false;
                 _isTextMode = false;
                 _stickerMode = false;
-                _isDropperMode = false;
                 _selectedTool = 'kalem';
                 _showSubTools = false;
               });
@@ -1034,7 +992,7 @@ class _ColoringPageState extends State<ColoringPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildToolButton(icon: Icons.edit, label: 'Kalem', isActive: _selectedTool == 'kalem' && !_isErasing && !_isTextMode && !_stickerMode && !_isDropperMode, onTap: () {
+          _buildToolButton(icon: Icons.edit, label: 'Kalem', isActive: _selectedTool == 'kalem' && !_isErasing && !_isTextMode && !_stickerMode, onTap: () {
             HapticHelper.lightImpact();
             setState(() {
               _selectedTool = 'kalem';
@@ -1042,11 +1000,10 @@ class _ColoringPageState extends State<ColoringPage>
               _isErasing = false;
               _isTextMode = false;
               _stickerMode = false;
-              _isDropperMode = false;
               _showSubTools = !_showSubTools || _selectedTool != 'kalem';
             });
           }),
-          _buildToolButton(icon: Icons.brush, label: 'Fırça', isActive: _selectedTool == 'fırça' && !_isErasing && !_isDropperMode, onTap: () {
+          _buildToolButton(icon: Icons.brush, label: 'Fırça', isActive: _selectedTool == 'fırça' && !_isErasing, onTap: () {
             HapticHelper.lightImpact();
             setState(() {
               _selectedTool = 'fırça';
@@ -1054,25 +1011,20 @@ class _ColoringPageState extends State<ColoringPage>
               _isErasing = false;
               _isTextMode = false;
               _stickerMode = false;
-              _isDropperMode = false;
               _showSubTools = !_showSubTools || _selectedTool != 'fırça';
             });
           }),
           _buildToolButton(icon: Icons.auto_fix_high, label: 'Silgi', isActive: _isErasing, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _isErasing = !_isErasing; _isTextMode = false; _stickerMode = false; _isDropperMode = false; _showSubTools = false; });
+            setState(() { _isErasing = !_isErasing; _isTextMode = false; _stickerMode = false; _showSubTools = false; });
           }),
           _buildToolButton(icon: Icons.text_fields, label: 'Metin', isActive: _isTextMode, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _isTextMode = !_isTextMode; _isErasing = false; _stickerMode = false; _isDropperMode = false; _showSubTools = false; });
+            setState(() { _isTextMode = !_isTextMode; _isErasing = false; _stickerMode = false; _showSubTools = false; });
           }),
           _buildToolButton(icon: Icons.emoji_emotions, label: 'Sticker', isActive: _stickerMode, onTap: () {
             HapticHelper.lightImpact();
-            setState(() { _stickerMode = !_stickerMode; _isErasing = false; _isTextMode = false; _isDropperMode = false; _showSubTools = _stickerMode; });
-          }),
-          _buildToolButton(icon: Icons.colorize, label: 'Renk', isActive: _isDropperMode, onTap: () {
-            HapticHelper.lightImpact();
-            setState(() { _isDropperMode = !_isDropperMode; _isErasing = false; _isTextMode = false; _stickerMode = false; _showSubTools = false; });
+            setState(() { _stickerMode = !_stickerMode; _isErasing = false; _isTextMode = false; _showSubTools = _stickerMode; });
           }),
         ],
       ),
