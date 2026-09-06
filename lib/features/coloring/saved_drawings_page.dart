@@ -207,7 +207,6 @@ class _SavedDrawingsPageState extends State<SavedDrawingsPage> {
   }
 
   Widget _buildDrawingCard(FileSystemEntity file) {
-    final fileName = file.path.split(Platform.pathSeparator).last;
     final fileDate = file.statSync().modified;
 
     return GestureDetector(

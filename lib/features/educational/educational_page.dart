@@ -6,7 +6,6 @@ import 'connect_dots_page.dart';
 import 'shape_matching_page.dart';
 import 'color_matching_page.dart';
 import 'memory_game_page.dart';
-import '../word_discovery/word_discovery_page.dart';
 import '../../data/services/ad_service.dart';
 
 /// Eğitim Oyunları Sayfası
@@ -89,15 +88,6 @@ class EducationalPage extends StatelessWidget {
                       subtitle: 'Kartları eşleştirerek hafızanı geliştir',
                       color: const Color(0xFF00BCD4),
                       onTap: () => _navigateWithAd(context, const MemoryGamePage()),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildGameCard(
-                      context: context,
-                      icon: '🔤',
-                      title: 'Kelime Keşfi',
-                      subtitle: 'Harfleri keşfederek kelime öğren',
-                      color: const Color(0xFF9C27B0),
-                      onTap: () => _navigateWithAd(context, const WordDiscoveryPage()),
                     ),
                   ],
                 ),
