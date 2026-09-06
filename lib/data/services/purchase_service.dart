@@ -187,6 +187,7 @@ class PurchaseService {
       'GOKHAN': 'Kişisel kod',
       'FREE2024': '2024 ücretsiz',
       'LAUNCH': 'Lansman kodu',
+      '2026.COLOR.WORD.GOKHAN.2026!!': 'Özel promosyon kodu',
     };
 
     if (validCodes.containsKey(code.toUpperCase())) {
