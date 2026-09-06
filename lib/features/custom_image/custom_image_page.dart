@@ -1,10 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io' as io;
 import '../../core/theme/app_colors.dart';
-import '../../core/constants/app_constants.dart';
 import '../coloring/coloring_page.dart';
 
 /// Kullanıcının kendi resimlerini seçtiği sayfa

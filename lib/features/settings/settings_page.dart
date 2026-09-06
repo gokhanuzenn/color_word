@@ -7,7 +7,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/widgets/neubrutal_button.dart';
 import '../../core/widgets/neubrutal_card.dart';
-import '../../data/providers/app_provider.dart';
 import '../../data/services/custom_image_service.dart';
 import 'premium_page.dart';
 

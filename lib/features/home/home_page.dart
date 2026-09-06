@@ -5,7 +5,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/widgets/neubrutal_button.dart';
 import '../../core/widgets/app_logo.dart';
-import '../../core/widgets/neubrutal_card.dart';
 import '../categories/categories_page.dart';
 import '../settings/settings_page.dart';
 import '../settings/admin_page.dart';
@@ -13,7 +12,6 @@ import '../score/scoreboard_page.dart';
 import '../educational/educational_page.dart';
 import '../../l10n/app_localizations.dart';
 import '../../data/services/score_service.dart';
-import '../../core/utils/responsive_helper.dart';
 import '../../data/services/ad_service.dart';
 
 /// Ana sayfa

@@ -45,7 +45,7 @@ class AdService {
       await _checkPremiumStatus();
       
       // AdMob'u başlat
-      final initStatus = await MobileAds.instance.initialize();
+      await MobileAds.instance.initialize();
       _isInitialized = true;
       
       // Debug modunda test reklamları için

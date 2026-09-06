@@ -1,5 +1,4 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 
 /// Yerel skor tablosu servisi
 /// Her kullanıcı kendi skorunu görür

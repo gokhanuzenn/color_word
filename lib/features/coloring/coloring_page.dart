@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/utils/haptic_helper.dart';
 import '../../data/services/score_service.dart';
