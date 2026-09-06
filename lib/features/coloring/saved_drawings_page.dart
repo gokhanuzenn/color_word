@@ -77,6 +77,7 @@ class _SavedDrawingsPageState extends State<SavedDrawingsPage> {
           initialImageIndex: 0,
           imagePaths: const [],
           isBlankCanvas: true,
+          savedDrawingPath: file.path,
         ),
       ),
     ).then((_) => _loadSavedDrawings());

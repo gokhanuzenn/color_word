@@ -57,6 +57,7 @@ class ColoringPage extends StatefulWidget {
   final List<String> imagePaths;
   final bool isBlankCanvas;
   final bool isCustomImage;
+  final String? savedDrawingPath;
 
   const ColoringPage({
     super.key,
@@ -67,6 +68,7 @@ class ColoringPage extends StatefulWidget {
     required this.imagePaths,
     this.isBlankCanvas = false,
     this.isCustomImage = false,
+    this.savedDrawingPath,
   });
 
   @override
@@ -118,7 +120,65 @@ class _ColoringPageState extends State<ColoringPage>
           setState(() => _showSparkle = false);
         }
       });
+    // Kayıtlı çizimi yükle
+    if (widget.savedDrawingPath != null) {
+      _loadSavedDrawing(widget.savedDrawingPath!);
+    }
     _startAutoSave();
+  }
+
+  void _loadSavedDrawing(String path) async {
+    try {
+      final file = File(path);
+      if (!await file.exists()) return;
+      final data = await file.readAsString();
+      if (data.isEmpty) return;
+
+      final lines = data.split('\n');
+      final loadedStrokes = <DrawStroke>[];
+
+      for (final line in lines) {
+        if (line.trim().isEmpty) continue;
+        try {
+          final parts = line.split(',');
+          if (parts.length < 3) continue;
+          final colorValue = int.parse(parts[0]);
+          final size = double.parse(parts[1]);
+          final pointsStr = parts.sublist(2).join(',');
+          final points = pointsStr.split(';').map((p) {
+            final coords = p.split(',');
+            return Offset(double.parse(coords[0]), double.parse(coords[1]));
+          }).toList();
+
+          if (points.length >= 2) {
+            loadedStrokes.add(DrawStroke(
+              color: Color(colorValue),
+              size: size,
+              points: points,
+            ));
+          }
+        } catch (e) {
+          // Bu satırı atla
+        }
+      }
+
+      if (loadedStrokes.isNotEmpty && mounted) {
+        setState(() {
+          _strokes = loadedStrokes;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('📥 ${loadedStrokes.length} çizgi yüklendi'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Yükleme hatası
+    }
   }
 
   @override
