@@ -15,13 +15,13 @@ class AdService {
   // === ADMOB ID'LERİ ===
   static const String appId = 'ca-app-pub-9171283684710932~8151502461';
   
-  // Test reklam ID'leri
-  static const String bannerAdUnitId = 'ca-app-pub-3940256099942544/6300978111';
-  static const String interstitialAdUnitId = 'ca-app-pub-3940256099942544/1033173712';
+  // Test reklam ID'leri (geliştirme sırasında kullan)
+  // static const String bannerAdUnitId = 'ca-app-pub-3940256099942544/6300978111';
+  // static const String interstitialAdUnitId = 'ca-app-pub-3940256099942544/1033173712';
 
-  // Gerçek reklam ID'leri (uygulama yayınlandıktan sonra aktif et)
-  // static const String bannerAdUnitId = 'ca-app-pub-9171283684710932/9463594451';
-  // static const String interstitialAdUnitId = 'ca-app-pub-9171283684710932/9407859330';
+  // Gerçek reklam ID'leri (mağazaya yüklemeden önce aktif et)
+  static const String bannerAdUnitId = 'ca-app-pub-9171283684710932/9463594451';
+  static const String interstitialAdUnitId = 'ca-app-pub-9171283684710932/9407859330';
 
   bool _isPremium = false;
   bool _showAds = true;
