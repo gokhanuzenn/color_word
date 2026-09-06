@@ -41,6 +41,24 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
+  static Widget _buildDecorDot(Color color) {
+    return Container(
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _onLogoTap() {
     final now = DateTime.now();
     // 2 saniyeden fazla geçtiyse sayacı sıfırla
@@ -108,8 +126,47 @@ class _HomePageState extends ConsumerState<HomePage> {
                 },
               ).animate().fadeIn(delay: 200.ms, duration: 600.ms),
 
-              const SizedBox(height: AppConstants.paddingExtraLarge),
-              const Spacer(),
+              const SizedBox(height: AppConstants.paddingLarge),
+
+              // Ortadaki dekoratif alan
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Büyük logo
+                      Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.buttonPrimary.withOpacity(0.1),
+                          border: Border.all(color: AppColors.buttonPrimary.withOpacity(0.3), width: 3),
+                        ),
+                        child: const Center(
+                          child: Text('🎨', style: TextStyle(fontSize: 56)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Dekoratif renk noktaları
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildDecorDot(Colors.red),
+                          const SizedBox(width: 8),
+                          _buildDecorDot(Colors.blue),
+                          const SizedBox(width: 8),
+                          _buildDecorDot(Colors.green),
+                          const SizedBox(width: 8),
+                          _buildDecorDot(Colors.orange),
+                          const SizedBox(width: 8),
+                          _buildDecorDot(Colors.purple),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
               // Ana butonlar
               Builder(
@@ -253,7 +310,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ).animate().fadeIn(delay: 750.ms, duration: 600.ms)
                           .slideY(begin: 0.3),
 
-
+                      const SizedBox(height: 16),
 
                       NeubrutalButton(
                         label: '⚙️ ${l10n.translate("settings")}',
