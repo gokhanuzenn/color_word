@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../core/utils/haptic_helper.dart';
 
 class LetterTracingPage extends StatefulWidget {
@@ -14,9 +13,7 @@ class _LetterTracingPageState extends State<LetterTracingPage>
   int _currentLetterIndex = 0;
   final List<List<Offset>> _allStrokes = []; // Her parmak kaldırmada yeni stroke
   List<Offset> _currentStrokePoints = [];
-  bool _isTracing = false;
   double _completion = 0.0;
-  bool _showCelebration = false;
 
   final Map<String, List<Offset>> _letterPaths = {
     'A': [Offset(150, 350), Offset(250, 100), Offset(350, 350), Offset(195, 230), Offset(305, 230)],
@@ -71,8 +68,6 @@ class _LetterTracingPageState extends State<LetterTracingPage>
       _allStrokes.clear();
       _currentStrokePoints = [];
       _completion = 0.0;
-      _showCelebration = false;
-      _isTracing = false;
     });
   }
 
@@ -107,13 +102,12 @@ class _LetterTracingPageState extends State<LetterTracingPage>
     }
 
     // %90 eşleşme ve en az 3 farklı yer çizilmeli
-    if (_completion >= 0.9 && allUserPoints.length > 50 && !_showCelebration) {
+    if (_completion >= 0.9 && allUserPoints.length > 50 && !_celebrationController.isAnimating) {
       _celebrate();
     }
   }
 
   void _celebrate() {
-    setState(() => _showCelebration = true);
     _celebrationController.forward(from: 0);
     HapticHelper.heavyImpact();
     Future.delayed(const Duration(seconds: 2), () {
@@ -239,7 +233,6 @@ class _LetterTracingPageState extends State<LetterTracingPage>
                   child: GestureDetector(
                     onPanStart: (details) {
                       setState(() {
-                        _isTracing = true;
                         _currentStrokePoints = [details.localPosition];
                       });
                     },
@@ -255,7 +248,6 @@ class _LetterTracingPageState extends State<LetterTracingPage>
                           _allStrokes.add(List.from(_currentStrokePoints));
                         }
                         _currentStrokePoints = [];
-                        _isTracing = false;
                       });
                     },
                     child: CustomPaint(

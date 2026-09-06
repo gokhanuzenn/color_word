@@ -13,7 +13,6 @@ class _NumberTracingPageState extends State<NumberTracingPage> {
   final List<List<Offset>> _allStrokes = [];
   List<Offset> _currentStrokePoints = [];
   double _completion = 0.0;
-  bool _showCelebration = false;
   bool _hasCompleted = false; // Mesaj tekrar tekrar gösterilmesin
 
   final Map<String, List<Offset>> _numberPaths = {
@@ -78,7 +77,6 @@ class _NumberTracingPageState extends State<NumberTracingPage> {
       _allStrokes.clear();
       _currentStrokePoints = [];
       _completion = 0.0;
-      _showCelebration = false;
       _hasCompleted = false;
     });
   }

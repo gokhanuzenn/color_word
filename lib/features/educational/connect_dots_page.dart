@@ -10,7 +10,6 @@ class ConnectDotsPage extends StatefulWidget {
 
 class _ConnectDotsPageState extends State<ConnectDotsPage> {
   int _currentPuzzleIndex = 0;
-  int _nextDotIndex = 0;
   final List<int> _connectedDots = [];
   bool _isCompleted = false;
 
@@ -275,7 +274,6 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
       HapticHelper.lightImpact();
       setState(() {
         _connectedDots.add(nearestIndex!);
-        _nextDotIndex = _connectedDots.length;
       });
 
       if (_connectedDots.length >= solution.length) {
@@ -319,7 +317,6 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
               setState(() {
                 _currentPuzzleIndex = (_currentPuzzleIndex + 1) % _puzzles.length;
                 _connectedDots.clear();
-                _nextDotIndex = 0;
                 _isCompleted = false;
               });
             },
@@ -344,7 +341,6 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
             setState(() {
               _currentPuzzleIndex = (_currentPuzzleIndex - 1 + _puzzles.length) % _puzzles.length;
               _connectedDots.clear();
-              _nextDotIndex = 0;
               _isCompleted = false;
             });
           }),
@@ -352,7 +348,6 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
             HapticHelper.lightImpact();
             setState(() {
               _connectedDots.clear();
-              _nextDotIndex = 0;
               _isCompleted = false;
             });
           }),
@@ -360,7 +355,6 @@ class _ConnectDotsPageState extends State<ConnectDotsPage> {
             setState(() {
               _currentPuzzleIndex = (_currentPuzzleIndex + 1) % _puzzles.length;
               _connectedDots.clear();
-              _nextDotIndex = 0;
               _isCompleted = false;
             });
           }),

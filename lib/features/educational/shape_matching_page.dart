@@ -13,7 +13,6 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
   int _currentLevel = 0;
   int _score = 0;
   final Map<int, bool> _matchedShapes = {};
-  bool _showCelebration = false;
   int? _selectedShapeId; // Seçili şekil ID'si
 
   final List<Map<String, dynamic>> _levels = [
@@ -62,7 +61,6 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
     _currentShapes = List.from(level['shapes']);
     _draggables = List.from(level['shapes'])..shuffle();
     _matchedShapes.clear();
-    _showCelebration = false;
     _selectedShapeId = null;
   }
 
@@ -86,7 +84,6 @@ class _ShapeMatchingPageState extends State<ShapeMatchingPage> {
       });
 
       if (_matchedShapes.length == _currentShapes.length) {
-        setState(() => _showCelebration = true);
         HapticHelper.heavyImpact();
         _showLevelComplete();
       }

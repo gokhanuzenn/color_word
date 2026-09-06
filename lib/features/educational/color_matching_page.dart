@@ -12,7 +12,6 @@ class _ColorMatchingPageState extends State<ColorMatchingPage> {
   int _currentLevel = 0;
   int _score = 0;
   int? _selectedColorIndex;
-  bool _showCelebration = false;
 
   final List<Map<String, dynamic>> _levels = [
     {
@@ -61,7 +60,6 @@ class _ColorMatchingPageState extends State<ColorMatchingPage> {
     _currentColors = List.from(level['colors']);
     _shuffledNames = List.from(level['colors'])..shuffle();
     _selectedColorIndex = null;
-    _showCelebration = false;
   }
 
   void _selectColor(int index) {
@@ -88,7 +86,6 @@ class _ColorMatchingPageState extends State<ColorMatchingPage> {
       });
 
       if (_currentColors.isEmpty) {
-        setState(() => _showCelebration = true);
         HapticHelper.heavyImpact();
         _showLevelComplete();
       }

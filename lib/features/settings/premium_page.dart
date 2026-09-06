@@ -18,7 +18,6 @@ class _PremiumPageState extends State<PremiumPage> {
   bool _isLoading = false;
   String? _message;
   bool _isSuccess = false;
-  bool _isPurchaseAvailable = false;
 
   @override
   void initState() {
@@ -32,11 +31,9 @@ class _PremiumPageState extends State<PremiumPage> {
     
     // Premium durumunu kontrol et
     final isPremium = await PurchaseService.instance.isPremium();
-    final isAvailable = PurchaseService.instance.isAvailable;
     
     setState(() {
       _isPremium = isPremium;
-      _isPurchaseAvailable = isAvailable;
     });
   }
 

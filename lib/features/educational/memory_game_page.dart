@@ -16,7 +16,6 @@ class _MemoryGamePageState extends State<MemoryGamePage> {
   int? _secondFlippedIndex;
   bool _isProcessing = false;
   final Set<int> _matchedCards = {};
-  bool _showCelebration = false;
 
   final List<Map<String, dynamic>> _levels = [
     {
@@ -52,7 +51,6 @@ class _MemoryGamePageState extends State<MemoryGamePage> {
     _isProcessing = false;
     _matchedCards.clear();
     _moves = 0;
-    _showCelebration = false;
   }
 
   void _flipCard(int index) {
@@ -89,7 +87,6 @@ class _MemoryGamePageState extends State<MemoryGamePage> {
 
             // Tüm kartlar eşleşti mi?
             if (_matchedCards.length == _cardValues.length) {
-              setState(() => _showCelebration = true);
               HapticHelper.heavyImpact();
               _showLevelComplete();
             }
